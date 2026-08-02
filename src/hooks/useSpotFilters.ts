@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { SPOTS } from '@/data/spots'
 import type { Spot, SpotType } from '@/types'
 
 export type WifiKey = 'fast' | 'decent'
@@ -18,8 +17,11 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
 /**
  * Directory filter state. Combination is AND across groups and OR within a
  * multi-select group. Spec: docs/BUILD_PLAN.md Session 2 STEP 10.
+ *
+ * `spots` is the source list to filter — in Phase 2 this comes from Supabase
+ * via useSpots(); pass a stable array reference to keep the memo cheap.
  */
-export function useSpotFilters() {
+export function useSpotFilters(spots: Spot[]) {
   const [activeType, setActiveType] = useState<SpotType | null>(null)
   const [wifi, setWifi] = useState<Set<WifiKey>>(new Set())
   const [vibe, setVibe] = useState<Set<VibeKey>>(new Set())
@@ -29,7 +31,7 @@ export function useSpotFilters() {
   const filteredSpots = useMemo<Spot[]>(() => {
     const query = searchQuery.trim().toLowerCase()
 
-    return SPOTS.filter((spot) => {
+    return spots.filter((spot) => {
       // Type — exact single match
       if (activeType && spot.type !== activeType) return false
 
@@ -62,7 +64,7 @@ export function useSpotFilters() {
 
       return true
     })
-  }, [activeType, wifi, vibe, price, searchQuery])
+  }, [spots, activeType, wifi, vibe, price, searchQuery])
 
   return {
     // state

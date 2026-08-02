@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { RootLayout } from '@/components/layout/RootLayout'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import ExplorePage from '@/pages/ExplorePage'
 import SpotDetailPage from '@/pages/SpotDetailPage'
 import CheckInPage from '@/pages/CheckInPage'
@@ -21,10 +22,31 @@ export default function App() {
         <Route path="/check-in" element={<CheckInPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/events" element={<EventsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/auth" element={<AuthPage />} />
-        <Route path="/partner" element={<PartnerPage />} />
-        <Route path="/partner/dashboard" element={<VenueDashboard />} />
+        <Route
+          path="/partner"
+          element={
+            <ProtectedRoute>
+              <PartnerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner/dashboard"
+          element={
+            <ProtectedRoute>
+              <VenueDashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

@@ -1,8 +1,13 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
-import { getSpotById } from '@/data/spots'
+import { useSpot } from '@/hooks/useSpots'
+import { useAuth } from '@/contexts/AuthContext'
+import { recordSpotVisit } from '@/lib/softGate'
 import { noiseLabel, wifiClass, spotTypeLabel } from '@/lib/spot-format'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 
 /** Accent token for a vibe tag, chosen by its leading emoji. */
@@ -24,7 +29,46 @@ function tintStyle(accent: string) {
 export default function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const spot = id ? getSpotById(id) : undefined
+  const { isLoggedIn } = useAuth()
+  const { data: spot, isLoading, isError } = useSpot(id)
+
+  // Soft-gate counter: record each guest spot visit (Phase 2 STEP 6).
+  useEffect(() => {
+    if (spot && !isLoggedIn) recordSpotVisit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, spot?.id, isLoggedIn])
+
+  // "Rating coming soon" toast for signed-in users (the review flow isn't built
+  // yet). Auto-dismisses after a moment.
+  const [showRateSoon, setShowRateSoon] = useState(false)
+  useEffect(() => {
+    if (!showRateSoon) return
+    const t = setTimeout(() => setShowRateSoon(false), 2800)
+    return () => clearTimeout(t)
+  }, [showRateSoon])
+
+  if (isLoading) {
+    return <SpotDetailSkeleton />
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <h1 className="font-display text-3xl font-bold text-text">
+          Something went wrong
+        </h1>
+        <p className="mt-2 font-sans text-sm text-muted">
+          We couldn&rsquo;t load this spot. Please try again.
+        </p>
+        <Link
+          to="/"
+          className="mt-6 inline-flex h-11 min-h-[44px] items-center rounded-pill bg-primary px-5 font-sans text-sm font-semibold text-inverse"
+        >
+          Back to Explore
+        </Link>
+      </div>
+    )
+  }
 
   if (!spot) {
     return (
@@ -35,7 +79,7 @@ export default function SpotDetailPage() {
         </p>
         <Link
           to="/"
-          className="mt-6 inline-flex h-11 items-center rounded-pill bg-primary px-5 font-sans text-sm font-semibold text-inverse"
+          className="mt-6 inline-flex h-11 min-h-[44px] items-center rounded-pill bg-primary px-5 font-sans text-sm font-semibold text-inverse"
         >
           Back to Explore
         </Link>
@@ -188,12 +232,25 @@ export default function SpotDetailPage() {
             })}
           </ul>
         </div>
-
       </div>
 
       {/* Sticky action bar — above the tab bar on mobile, bottom on desktop */}
       <div className="fixed inset-x-0 bottom-[68px] z-40 border-t border-border bg-surface md:bottom-0">
-        <div className="mx-auto flex max-w-content gap-3 px-4 py-3 md:justify-start md:px-10 lg:px-[60px]">
+        <div className="relative mx-auto flex max-w-content gap-3 px-4 py-3 md:justify-start md:px-10 lg:px-[60px]">
+          <AnimatePresence>
+            {showRateSoon && (
+              <motion.div
+                role="status"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-pill bg-dark px-4 py-2 font-sans text-sm text-inverse shadow-md"
+              >
+                ✍️ Spot ratings are coming soon
+              </motion.div>
+            )}
+          </AnimatePresence>
           <a
             href={mapsUrl}
             target="_blank"
@@ -202,12 +259,49 @@ export default function SpotDetailPage() {
           >
             🗺 Get Directions
           </a>
-          <Link
-            to="/auth"
-            className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
-          >
-            ✍️ Rate This Spot
-          </Link>
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={() => setShowRateSoon(true)}
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+            >
+              ✍️ Rate This Spot
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              state={{ from: `/spot/${id}` }}
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+            >
+              ✍️ Rate This Spot
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Loading placeholder matching the detail-page layout. */
+function SpotDetailSkeleton() {
+  return (
+    <div className="pb-28 md:pb-24">
+      <Skeleton className="full-bleed h-[260px] rounded-none md:h-[540px]" />
+      <div className="space-y-8 py-8">
+        <div className="max-w-2xl space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-md" />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-24 rounded-pill" />
+          ))}
         </div>
       </div>
     </div>

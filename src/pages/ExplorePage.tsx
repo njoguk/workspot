@@ -1,10 +1,13 @@
 import { motion } from 'framer-motion'
 import { PLATFORM, VERIFIED_SPOT_COUNT } from '@/config/platform'
-import { getFeaturedSpots } from '@/data/spots'
+import type { Spot } from '@/types'
+import { useSpots, useFeaturedSpots } from '@/hooks/useSpots'
 import { useSpotFilters } from '@/hooks/useSpotFilters'
 import { SpotCard } from '@/components/spots/SpotCard'
 import { SpotCardFeatured } from '@/components/spots/SpotCardFeatured'
 import { FilterBar } from '@/components/explore/FilterBar'
+import { Skeleton, SpotCardSkeleton } from '@/components/ui/Skeleton'
+import { SoftGateSheet } from '@/components/auth/SoftGateSheet'
 
 const container = {
   hidden: {},
@@ -22,9 +25,23 @@ const HERO_STATS = [
   { value: 'Free', label: 'Always' },
 ]
 
+/** Stable empty reference so useSpotFilters' memo doesn't recompute each render. */
+const EMPTY_SPOTS: Spot[] = []
+
 export default function ExplorePage() {
-  const filters = useSpotFilters()
-  const featured = getFeaturedSpots()
+  const {
+    data: spots,
+    isLoading: spotsLoading,
+    isError: spotsError,
+    refetch: refetchSpots,
+  } = useSpots()
+  const {
+    data: featured,
+    isLoading: featuredLoading,
+    isError: featuredError,
+  } = useFeaturedSpots()
+
+  const filters = useSpotFilters(spots ?? EMPTY_SPOTS)
   const { filteredSpots } = filters
 
   return (
@@ -118,11 +135,19 @@ export default function ExplorePage() {
             The spots our team keeps coming back to
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
-          {featured.map((spot) => (
-            <SpotCardFeatured key={spot.id} spot={spot} />
-          ))}
-        </div>
+        {featuredError ? (
+          <p className="font-sans text-sm text-muted">
+            Couldn&rsquo;t load featured spots right now.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
+            {featuredLoading || !featured
+              ? [0, 1].map((i) => <Skeleton key={i} className="h-64 w-full rounded-lg" />)
+              : featured.map((spot) => (
+                  <SpotCardFeatured key={spot.id} spot={spot} />
+                ))}
+          </div>
+        )}
       </section>
 
       {/* ── Section C — All Spots ── */}
@@ -138,15 +163,40 @@ export default function ExplorePage() {
               aria-label="Search spots by name or neighbourhood"
               className="h-10 w-full rounded-pill border border-border bg-surface-alt px-4 font-sans text-sm text-text placeholder:text-light focus:border-primary focus:outline-none sm:w-64"
             />
-            <span className="whitespace-nowrap font-mono text-xs text-muted">
-              {filteredSpots.length} {filteredSpots.length === 1 ? 'spot' : 'spots'}
-            </span>
+            {!spotsLoading && !spotsError && (
+              <span className="whitespace-nowrap font-mono text-xs text-muted">
+                {filteredSpots.length}{' '}
+                {filteredSpots.length === 1 ? 'spot' : 'spots'}
+              </span>
+            )}
           </div>
         </div>
 
         <FilterBar filters={filters} />
 
-        {filteredSpots.length > 0 ? (
+        {spotsLoading ? (
+          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SpotCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : spotsError ? (
+          <div className="mt-10 flex flex-col items-center justify-center rounded-lg bg-surface py-16 text-center">
+            <p className="font-display text-xl font-bold text-text">
+              We couldn&rsquo;t load spots
+            </p>
+            <p className="mt-2 max-w-sm font-sans text-sm text-muted">
+              Check your connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => refetchSpots()}
+              className="mt-6 inline-flex h-11 min-h-[44px] items-center rounded-pill bg-primary px-5 font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90"
+            >
+              Try again
+            </button>
+          </div>
+        ) : filteredSpots.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredSpots.map((spot) => (
               <SpotCard key={spot.id} spot={spot} />
@@ -161,6 +211,9 @@ export default function ExplorePage() {
           </div>
         )}
       </section>
+
+      {/* Soft gate — invites guests to join after 3 spot visits (STEP 6) */}
+      <SoftGateSheet />
     </div>
   )
 }
