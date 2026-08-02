@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { TopNav } from '@/components/layout/TopNav'
 import { BottomTabs } from '@/components/layout/BottomTabs'
 import { PageWrapper } from '@/components/layout/PageWrapper'
+import { ScrollToTop } from '@/components/layout/ScrollToTop'
 
 /**
  * App shell shared by every route: fixed TopNav, a PageWrapper-padded
@@ -9,7 +10,8 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
  */
 export function RootLayout() {
   return (
-    <div className="min-h-screen bg-bg text-text">
+    <div className="min-h-screen overflow-x-clip bg-bg text-text">
+      <ScrollToTop />
       <TopNav />
       <PageWrapper>
         <Outlet />
