@@ -1,0 +1,128 @@
+/* ══════════════════════════════════════════════
+   RemoSpot Design Tokens v1.0
+   Generated from docs/DESIGN_SYSTEM.md — the single source of truth.
+   Edit this file to redesign the entire product.
+   Naming is semantic (role), not literal (value).
+   This is the ONLY place hex values are allowed to exist.
+══════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+
+  /* ── BRAND COLOURS ── */
+  /* Primary action, CTAs, active states, terracotta warmth */
+  --color-primary:      #C4622D;
+  /* Secondary accent, scores, highlights, golden warmth */
+  --color-secondary:    #E8A135;
+  /* Success, availability, check-in active, leaf green */
+  --color-success:      #3D6B4F;
+  /* Informational, badges, sky blue */
+  --color-info:         #4A7FA5;
+
+  /* ── SURFACES ── */
+  /* Page background — warmest cream */
+  --color-bg:           #F9F5EE;
+  /* Card surface — slightly warmer than bg */
+  --color-surface:      #FAF6EE;
+  /* Alternative surface — filter bars, input backgrounds */
+  --color-surface-alt:  #EDE5D6;
+  /* Subtle tint — hover states, chips, muted backgrounds */
+  --color-surface-tint: #F5EFE0;
+  /* Sand — secondary card backgrounds */
+  --color-surface-sand: #E8DCCB;
+
+  /* ── DARK SURFACES ── */
+  /* Primary dark — nav backgrounds, dark cards, hero sections */
+  --color-dark:         #1C1410;
+  /* Secondary dark — dark card backgrounds, dark panels */
+  --color-dark-alt:     #2E1F14;
+
+  /* ── BORDERS ── */
+  --color-border:       rgba(28,20,16,0.10);
+  --color-border-strong:rgba(28,20,16,0.18);
+
+  /* ── TEXT ── */
+  --color-text:         #1C1410;
+  --color-text-muted:   #7A6A58;
+  --color-text-light:   #A89880;
+  /* Text on dark backgrounds */
+  --color-text-inverse: #F5EFE0;
+
+  /* ── TYPOGRAPHY ── */
+  /* Display / editorial headings */
+  --font-display: "Playfair Display", Georgia, serif;
+  /* Body copy, UI labels, buttons */
+  --font-body:    "DM Sans", system-ui, sans-serif;
+  /* Monospace: data, scores, timestamps, metrics */
+  --font-mono:    "DM Mono", "Courier New", monospace;
+
+  /* ── TYPE SCALE ── */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  28px;
+  /* Display: use clamp() in components for responsive sizing */
+
+  /* ── RADIUS ── */
+  --radius-sm:   8px;    /* inputs, small chips */
+  --radius-md:   12px;   /* small cards, panels */
+  --radius-lg:   16px;   /* main cards */
+  --radius-xl:   20px;   /* modals, large panels */
+  --radius-pill: 100px;  /* badges, chips, pills */
+
+  /* ── SHADOWS ── */
+  /* Always earth-toned shadows, never pure black */
+  --shadow-sm:  0 2px 12px rgba(28,20,16,0.08);
+  --shadow-md:  0 8px 32px rgba(28,20,16,0.12);
+  --shadow-lg:  0 24px 64px rgba(28,20,16,0.18);
+  --shadow-xl:  0 40px 100px rgba(28,20,16,0.24);
+
+  /* ── SPACING (base-8 scale) ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── MOTION ── */
+  --duration-fast:   150ms;
+  --duration-normal: 250ms;
+  --duration-slow:   350ms;
+  --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── LAYOUT ── */
+  --nav-height:       64px;
+  --tab-bar-height:   68px;
+  --sidebar-width:    220px;
+  --max-width:        1440px;
+  --content-padding:  40px;
+
+}
+
+/* ── DARK MODE ──
+   Because all values are semantic CSS Custom Properties, dark mode is
+   just an override block. Toggle with:
+   document.documentElement.setAttribute('data-theme', 'dark')
+   Brand accents intentionally remain the same — they work on both. */
+[data-theme="dark"] {
+  --color-bg:           #1C1410;
+  --color-surface:      #2E1F14;
+  --color-surface-alt:  #3D2B1F;
+  --color-surface-tint: #2E1F14;
+  --color-border:       rgba(245,239,224,0.08);
+  --color-border-strong:rgba(245,239,224,0.15);
+  --color-text:         #F5EFE0;
+  --color-text-muted:   #A89880;
+  --color-text-light:   #7A6A58;
+  --color-text-inverse: #1C1410;
+}
