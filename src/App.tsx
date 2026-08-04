@@ -1,6 +1,8 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { RootLayout } from '@/components/layout/RootLayout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { Skeleton } from '@/components/ui/Skeleton'
 import ExplorePage from '@/pages/ExplorePage'
 import SpotDetailPage from '@/pages/SpotDetailPage'
 import CheckInPage from '@/pages/CheckInPage'
@@ -9,9 +11,12 @@ import EventsPage from '@/pages/EventsPage'
 import EventDetailPage from '@/pages/EventDetailPage'
 import ProfilePage from '@/pages/ProfilePage'
 import AuthPage from '@/pages/AuthPage'
-import PartnerPage from '@/pages/PartnerPage'
-import VenueDashboard from '@/pages/VenueDashboard'
+import PartnerLandingPage from '@/pages/PartnerLandingPage'
 import OnboardingPage from '@/pages/OnboardingPage'
+
+// The partner dashboard pulls in Recharts — lazy-load it so that chart library
+// stays out of the initial bundle for everyone who isn't a venue owner.
+const VenueDashboard = lazy(() => import('@/pages/partner/VenueDashboard'))
 import WorkPassPage from '@/pages/WorkPassPage'
 import BookingPage from '@/pages/BookingPage'
 import BookingConfirmPage from '@/pages/BookingConfirmPage'
@@ -37,19 +42,15 @@ export default function App() {
           }
         />
         <Route path="/auth" element={<AuthPage />} />
-        <Route
-          path="/partner"
-          element={
-            <ProtectedRoute>
-              <PartnerPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Partner landing is public; the dashboard requires sign-in. */}
+        <Route path="/partner" element={<PartnerLandingPage />} />
         <Route
           path="/partner/dashboard"
           element={
             <ProtectedRoute>
-              <VenueDashboard />
+              <Suspense fallback={<Skeleton className="mt-6 h-[60vh] w-full rounded-xl" />}>
+                <VenueDashboard />
+              </Suspense>
             </ProtectedRoute>
           }
         />

@@ -4,8 +4,9 @@ import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useSpot } from '@/hooks/useSpots'
 import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
 import { useIsWorkPassMember } from '@/hooks/useWorkPass'
+import { initializePayment, openPaystackPopup } from '@/lib/paystack'
+import { formatKenyanPhone, toPaystackPhone } from '@/lib/phone'
 import {
   useCreateBooking,
   useOccupancyRealtime,
@@ -55,7 +56,6 @@ export default function BookingPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, loading: authLoading } = useAuth()
-  const { showToast } = useToast()
   const { isActive } = useIsWorkPassMember()
 
   const { data: spot, isLoading: spotLoading, isError: spotError } = useSpot(spotId)
@@ -68,6 +68,9 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState(dates[0].iso)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [step, setStep] = useState<'slot' | 'review'>('slot')
+  const [phone, setPhone] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [paying, setPaying] = useState(false)
 
   const { data: occupancy } = useSlotOccupancy(spotId, selectedDate)
   useOccupancyRealtime(spotId, selectedDate)
@@ -105,7 +108,15 @@ export default function BookingPage() {
 
   async function confirm() {
     if (!slot || !user || !spot) return
+    if (!user.email) {
+      setError('Your account has no email on file — add one to pay.')
+      return
+    }
+    setError(null)
+    setPaying(true)
     try {
+      // 1. Create the booking as 'pending'. The Paystack webhook flips it to
+      //    'confirmed' once payment settles (a pending row holds no seat).
       const booking = await createBooking.mutateAsync({
         spotId: spot.id,
         slotDate: selectedDate,
@@ -116,9 +127,33 @@ export default function BookingPage() {
         workpassDiscount: discount,
         paymentMethod: 'paystack',
       })
-      navigate(`/booking/${booking.id}/confirm`)
-    } catch {
-      showToast('Could not complete booking — try again', { icon: '⚠️' })
+
+      // 2. Initialise the Paystack transaction server-side.
+      const { access_code } = await initializePayment({
+        amountKes: total,
+        email: user.email,
+        paymentType: 'booking',
+        bookingId: booking.id,
+        phoneNumber: toPaystackPhone(phone),
+        userId: user.id,
+      })
+
+      // 3. Open the popup — it runs the full M-Pesa STK push / card flow and
+      //    closes itself. We only navigate on a completed payment.
+      openPaystackPopup(access_code, {
+        onSuccess: () => navigate(`/booking/${booking.id}/confirm`),
+        onCancel: () => {
+          setError('Payment cancelled. Please try again.')
+          setPaying(false)
+        },
+        onError: (msg) => {
+          setError(msg || 'Payment could not be started. Please try again.')
+          setPaying(false)
+        },
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start payment — try again.')
+      setPaying(false)
     }
   }
 
@@ -291,12 +326,14 @@ export default function BookingPage() {
         </div>
       ) : (
         <ReviewStep
-          spotName={spot.name}
           slotLabel={slot ? `${slot.label} · ${slotRangeLabel(slot.start, slot.end)}` : ''}
           standard={slot?.standard ?? 0}
           discount={discount}
           total={total}
-          submitting={createBooking.isPending}
+          phone={phone}
+          onPhoneChange={(v) => setPhone(formatKenyanPhone(v))}
+          submitting={paying}
+          error={error}
           onConfirm={confirm}
         />
       )}
@@ -311,15 +348,20 @@ function ReviewStep({
   standard,
   discount,
   total,
+  phone,
+  onPhoneChange,
   submitting,
+  error,
   onConfirm,
 }: {
-  spotName: string
   slotLabel: string
   standard: number
   discount: number
   total: number
+  phone: string
+  onPhoneChange: (v: string) => void
   submitting: boolean
+  error: string | null
   onConfirm: () => void
 }) {
   const cream72 = 'color-mix(in srgb, var(--color-text-inverse) 72%, transparent)'
@@ -380,10 +422,40 @@ function ReviewStep({
         </div>
       </div>
 
+      {/* Optional M-Pesa number — pre-fills the STK push in the popup. */}
+      <div className="mt-4">
+        <label htmlFor="booking-mpesa" className="font-mono text-[11px] uppercase tracking-[0.14em] text-light">
+          M-Pesa number <span className="normal-case tracking-normal">(optional)</span>
+        </label>
+        <input
+          id="booking-mpesa"
+          type="tel"
+          inputMode="numeric"
+          value={phone}
+          onChange={(e) => onPhoneChange(e.target.value)}
+          placeholder="+254 7XX XXX XXX"
+          aria-label="M-Pesa phone number (optional)"
+          className="mt-2 h-12 w-full rounded-md border border-border bg-surface px-4 font-mono text-base text-text outline-none focus:border-primary"
+        />
+        <p className="mt-1.5 font-sans text-[11px] text-muted">
+          Leave blank to enter it in the payment popup.
+        </p>
+      </div>
+
       <p className="mt-4 flex items-start gap-2 font-sans text-[12px] text-muted">
         <span aria-hidden="true">⏳</span>
         We&rsquo;ll hold your seat for 10 minutes. Confirm to lock it in.
       </p>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-4 rounded-md p-3 font-sans text-[13px] text-primary"
+          style={{ background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)' }}
+        >
+          {error}
+        </p>
+      )}
 
       {/* Confirm bar */}
       <div className="fixed inset-x-0 bottom-[68px] z-40 border-t border-border bg-surface md:bottom-0">
@@ -394,7 +466,7 @@ function ReviewStep({
             onClick={onConfirm}
             className="flex h-12 w-full min-h-[44px] items-center justify-center rounded-pill bg-success font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
           >
-            {submitting ? 'Confirming…' : `Confirm & Pay · ${formatKES(total)}`}
+            {submitting ? 'Starting payment…' : `Confirm & Pay · ${formatKES(total)}`}
           </button>
         </div>
       </div>

@@ -62,36 +62,26 @@ export function useIsWorkPassMember(): WorkPassStatus {
   return { isActive, expiresAt: isActive ? expiresAt : null, daysLeft }
 }
 
-// ── Activation (test shortcut until Session 6 Edge Function) ────
+/**
+ * One-shot read of whether the user's WorkPass flag is set. Used by the
+ * subscription flow to poll for the paystack-webhook flipping is_workpass after
+ * a successful payment (keeps the raw Supabase call out of the page component).
+ */
+export async function checkWorkPassActive(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('is_workpass')
+    .eq('id', userId)
+    .maybeSingle()
+  return Boolean((data as { is_workpass: boolean } | null)?.is_workpass)
+}
+
+// ── Activation ─────────────────────────────────────────────────
+
+// WorkPass is activated by the paystack-webhook after a real subscription
+// payment (see src/pages/WorkPassPage.tsx + supabase/functions/paystack-webhook).
 
 export type WorkPassPlan = 'monthly' | 'annual'
-
-/**
- * Activate a WorkPass membership. Real M-Pesa/Paystack settlement arrives in
- * Session 6; for now this is the local test shortcut that grants 30 days of
- * membership per docs/BUILD_PLAN.md STEP 3, Screen 3.
- */
-export function useActivateWorkPass() {
-  const { user, refreshProfile } = useAuth()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (_plan: WorkPassPlan) => {
-      if (!user) throw new Error('You need to be signed in to start a WorkPass.')
-      const expiresAt = new Date(Date.now() + 30 * MS_PER_DAY).toISOString()
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_workpass: true, workpass_expires_at: expiresAt })
-        .eq('id', user.id)
-      if (error) throw error
-      return { expiresAt }
-    },
-    onSuccess: () => {
-      void refreshProfile()
-      queryClient.invalidateQueries({ queryKey: ['workpass'] })
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
-    },
-  })
-}
 
 /**
  * Cancel the current user's WorkPass — clears the membership flag and expiry.

@@ -47,3 +47,4 @@ export const VERIFIED_SPOT_COUNT = 47
 export const PLATFORM_NAME = PLATFORM.name
 export const SCORE_LABEL = SCORING.scoreLabel
 export const SUBSCRIPTION_NAME = COMMUNITY.subscriptionName
+export const VENUE_PORTAL_NAME = COMMUNITY.venuePortalName

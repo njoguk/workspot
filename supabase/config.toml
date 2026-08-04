@@ -1,0 +1,14 @@
+# Minimal Supabase config for Edge Function deployment.
+# `supabase link --project-ref <ref>` sets the remote project; this file just
+# controls per-function behaviour during `supabase functions deploy`.
+
+project_id = "remospot"
+
+# Frontend calls this with the signed-in user's JWT — keep verification on.
+[functions.initialize-payment]
+verify_jwt = true
+
+# Paystack calls this server-to-server with NO Supabase JWT (it authenticates
+# via the x-paystack-signature HMAC instead), so JWT verification must be off.
+[functions.paystack-webhook]
+verify_jwt = false

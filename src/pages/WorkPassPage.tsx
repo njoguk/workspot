@@ -6,13 +6,15 @@ import { PLATFORM_NAME, SUBSCRIPTION_NAME } from '@/config/platform'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import {
-  useActivateWorkPass,
+  checkWorkPassActive,
   useCancelWorkPass,
   useIsWorkPassMember,
   type WorkPassPlan,
 } from '@/hooks/useWorkPass'
 import { WorkPassCard } from '@/components/workpass/WorkPassCard'
 import { formatKES } from '@/lib/booking'
+import { formatKenyanPhone, isValidKenyanPhone, toPaystackPhone } from '@/lib/phone'
+import { initializePayment, openPaystackPopup } from '@/lib/paystack'
 import { cn } from '@/lib/utils'
 
 type Screen = 'pitch' | 'plans' | 'payment'
@@ -61,49 +63,84 @@ const PERKS = [
   { icon: '🏆', title: 'Member badge', desc: 'Show your status in the community' },
 ]
 
-// ── Kenyan phone formatting ────────────────────────────────────
+const POLL_INTERVAL_MS = 2000
+const POLL_MAX_MS = 30000
 
-/** Normalise arbitrary input to "+254 7XX XXX XXX". */
-function formatKenyanPhone(input: string): string {
-  let digits = input.replace(/\D/g, '')
-  if (digits.startsWith('254')) digits = digits.slice(3)
-  if (digits.startsWith('0')) digits = digits.slice(1)
-  digits = digits.slice(0, 9)
-  const groups = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 9)].filter(Boolean)
-  return groups.length ? `+254 ${groups.join(' ')}` : '+254 '
-}
-
-/** A complete Kenyan mobile number (9 subscriber digits starting 7 or 1). */
-function isValidKenyanPhone(formatted: string): boolean {
-  const digits = formatted.replace(/\D/g, '').replace(/^254/, '')
-  return digits.length === 9 && /^[17]/.test(digits)
-}
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export default function WorkPassPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const { isActive, expiresAt, daysLeft } = useIsWorkPassMember()
-  const activate = useActivateWorkPass()
   const { showToast } = useToast()
 
   const [screen, setScreen] = useState<Screen>('pitch')
   const [plan, setPlan] = useState<WorkPassPlan>('annual')
   const [phone, setPhone] = useState('')
   const [done, setDone] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [activating, setActivating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const from = (location.state as { from?: string } | null)?.from
   const returnTo = from && from !== '/workpass' ? from : '/'
 
   const selected = PLANS[plan]
 
+  // After the popup reports success the paystack-webhook flips is_workpass
+  // server-side. Poll the profile until it lands (max 30s), then reveal success.
+  async function waitForActivation() {
+    if (!user) return
+    setActivating(true)
+    const deadline = Date.now() + POLL_MAX_MS
+    while (Date.now() < deadline) {
+      if (await checkWorkPassActive(user.id)) {
+        await refreshProfile()
+        setActivating(false)
+        setPaying(false)
+        setDone(true)
+        showToast('WorkPass activated', { icon: '🏆' })
+        return
+      }
+      await sleep(POLL_INTERVAL_MS)
+    }
+    setActivating(false)
+    setPaying(false)
+    setError('Payment received — activation is taking a moment. Check back shortly.')
+  }
+
   async function handlePay() {
+    if (!user?.email) {
+      setError('Your account has no email on file — add one to pay.')
+      return
+    }
+    setError(null)
+    setPaying(true)
     try {
-      await activate.mutateAsync(plan)
-      setDone(true)
-      showToast('WorkPass activated', { icon: '🏆' })
-    } catch {
-      showToast('Could not activate — please try again', { icon: '⚠️' })
+      const paymentType = plan === 'annual' ? 'subscription_annual' : 'subscription_monthly'
+      const { access_code } = await initializePayment({
+        amountKes: selected.billedNow,
+        email: user.email,
+        paymentType,
+        phoneNumber: toPaystackPhone(phone),
+        userId: user.id,
+      })
+      // Popup runs the M-Pesa STK push / card flow, then closes itself.
+      openPaystackPopup(access_code, {
+        onSuccess: () => void waitForActivation(),
+        onCancel: () => {
+          setError('Payment cancelled. Please try again.')
+          setPaying(false)
+        },
+        onError: (msg) => {
+          setError(msg || 'Payment could not be started. Please try again.')
+          setPaying(false)
+        },
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start payment — try again.')
+      setPaying(false)
     }
   }
 
@@ -195,7 +232,9 @@ export default function WorkPassPage() {
             phone={phone}
             onPhoneChange={(v) => setPhone(formatKenyanPhone(v))}
             phoneValid={isValidKenyanPhone(phone)}
-            submitting={activate.isPending}
+            submitting={paying}
+            activating={activating}
+            error={error}
             onPay={handlePay}
           />
         )}
@@ -406,6 +445,8 @@ function PaymentScreen({
   onPhoneChange,
   phoneValid,
   submitting,
+  activating,
+  error,
   onPay,
 }: {
   spec: PlanSpec
@@ -413,8 +454,11 @@ function PaymentScreen({
   onPhoneChange: (v: string) => void
   phoneValid: boolean
   submitting: boolean
+  activating: boolean
+  error: string | null
   onPay: () => void
 }) {
+  const busy = submitting || activating
   return (
     <motion.div {...screenMotion}>
       <h1 className="font-display text-[26px] font-bold leading-tight">Pay with M-Pesa</h1>
@@ -467,7 +511,7 @@ function PaymentScreen({
         />
       </div>
 
-      {/* Session 6 note */}
+      {/* Payment note */}
       <p
         className="mt-4 rounded-md p-3 font-sans text-[12px] leading-snug"
         style={{
@@ -475,17 +519,34 @@ function PaymentScreen({
           color: cream72,
         }}
       >
-        💡 Live M-Pesa payment is coming in Session 6. For now this activates a 30-day
-        test membership instantly.
+        💡 A secure Paystack popup opens next. Approve the M-Pesa prompt (or pay by card)
+        and your {SUBSCRIPTION_NAME} activates automatically.
       </p>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-4 rounded-md p-3 font-sans text-[12px] leading-snug"
+          style={{
+            background: 'color-mix(in srgb, var(--color-primary) 16%, transparent)',
+            color: 'var(--color-text-inverse)',
+          }}
+        >
+          {error}
+        </p>
+      )}
 
       <button
         type="button"
         onClick={onPay}
-        disabled={!phoneValid || submitting}
+        disabled={!phoneValid || busy}
         className="mt-5 flex h-12 w-full min-h-[44px] items-center justify-center rounded-pill bg-success font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {submitting ? 'Processing…' : `Send M-Pesa Request · ${formatKES(spec.billedNow)}`}
+        {activating
+          ? 'Activating your ' + SUBSCRIPTION_NAME + '…'
+          : submitting
+            ? 'Waiting for payment…'
+            : `Send M-Pesa Request · ${formatKES(spec.billedNow)}`}
       </button>
     </motion.div>
   )
@@ -527,7 +588,7 @@ function SuccessScreen({
       <p className="mx-auto mt-2 max-w-xs font-sans text-sm" style={{ color: cream72 }}>
         {alreadyMember
           ? 'Your membership is active. Book any spot ahead and save 30% on every slot.'
-          : 'Payment processing is coming in Session 6 — for now your 30-day test membership is live.'}
+          : 'Payment confirmed — your membership is live. Book any spot ahead and save 30% on every slot.'}
       </p>
 
       <div className="mx-auto mt-6 max-w-sm text-left">
