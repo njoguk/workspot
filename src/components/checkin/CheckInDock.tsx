@@ -19,7 +19,14 @@ export function useCheckinDockState(): { visible: boolean; active: ActiveCheckin
   const { isLoggedIn } = useAuth()
   const { data: active } = useActiveCheckin()
   const { pathname } = useLocation()
-  const hidden = pathname.startsWith('/spot/') || pathname === '/check-in'
+  // Hidden where a page owns the bottom of the screen or the dock is off-topic:
+  // the spot detail bar, /check-in itself, and the whole booking/upgrade journey
+  // (`/book`, `/booking/…/confirm`, `/bookings`, `/workpass`).
+  const hidden =
+    pathname.startsWith('/spot/') ||
+    pathname === '/check-in' ||
+    pathname.startsWith('/book') ||
+    pathname.startsWith('/workpass')
   const visible = isLoggedIn && !hidden
   return { visible, active: visible ? active ?? null : null }
 }

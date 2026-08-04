@@ -12,6 +12,10 @@ import AuthPage from '@/pages/AuthPage'
 import PartnerPage from '@/pages/PartnerPage'
 import VenueDashboard from '@/pages/VenueDashboard'
 import OnboardingPage from '@/pages/OnboardingPage'
+import WorkPassPage from '@/pages/WorkPassPage'
+import BookingPage from '@/pages/BookingPage'
+import BookingConfirmPage from '@/pages/BookingConfirmPage'
+import MyBookingsPage from '@/pages/MyBookingsPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 export default function App() {
@@ -50,6 +54,41 @@ export default function App() {
           }
         />
         <Route path="/onboarding" element={<OnboardingPage />} />
+
+        {/* Phase 3 — WorkPass + slot bookings (all require sign-in) */}
+        <Route
+          path="/workpass"
+          element={
+            <ProtectedRoute>
+              <WorkPassPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/book/:spotId"
+          element={
+            <ProtectedRoute>
+              <BookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/booking/:bookingId/confirm"
+          element={
+            <ProtectedRoute>
+              <BookingConfirmPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <ProtectedRoute>
+              <MyBookingsPage />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

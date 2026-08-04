@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarCheck, LogOut, User } from 'lucide-react'
-import { PLATFORM, VERIFIED_SPOT_COUNT } from '@/config/platform'
+import { CalendarCheck, LogOut, Sparkles, User } from 'lucide-react'
+import { PLATFORM, SUBSCRIPTION_NAME, VERIFIED_SPOT_COUNT } from '@/config/platform'
 import { useAuth } from '@/contexts/AuthContext'
+import { useIsWorkPassMember } from '@/hooks/useWorkPass'
 
 /**
  * Fixed 64px top bar. Cream background with backdrop-blur, subtle bottom
@@ -13,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext'
  */
 export function TopNav() {
   const { isLoggedIn, initials, displayName, signOut } = useAuth()
+  const { isActive: isMember } = useIsWorkPassMember()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -76,6 +78,17 @@ export function TopNav() {
             </span>
           </div>
 
+          {isLoggedIn && isMember && (
+            /* WorkPass member badge */
+            <Link
+              to="/workpass"
+              aria-label={`${SUBSCRIPTION_NAME} member`}
+              className="hidden items-center gap-1 rounded-pill bg-secondary px-2.5 py-1 font-mono text-[11px] font-medium text-dark shadow-sm transition-opacity duration-fast hover:opacity-90 sm:inline-flex"
+            >
+              🏆 {SUBSCRIPTION_NAME}
+            </Link>
+          )}
+
           {isLoggedIn ? (
             /* Account avatar + dropdown */
             <div className="relative" ref={menuRef}>
@@ -104,8 +117,14 @@ export function TopNav() {
                       Profile
                     </MenuItem>
                     <MenuItem
+                      icon={<Sparkles size={16} />}
+                      onClick={() => go('/workpass')}
+                    >
+                      {isMember ? `${SUBSCRIPTION_NAME} member` : `Get ${SUBSCRIPTION_NAME}`}
+                    </MenuItem>
+                    <MenuItem
                       icon={<CalendarCheck size={16} />}
-                      onClick={() => go('/profile')}
+                      onClick={() => go('/bookings')}
                     >
                       My Bookings
                     </MenuItem>

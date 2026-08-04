@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion'
-import { PLATFORM, VERIFIED_SPOT_COUNT } from '@/config/platform'
+import { PLATFORM, SUBSCRIPTION_NAME, VERIFIED_SPOT_COUNT } from '@/config/platform'
 import type { Spot } from '@/types'
+import { Link } from 'react-router-dom'
 import { useSpots, useFeaturedSpots } from '@/hooks/useSpots'
+import { useIsWorkPassMember } from '@/hooks/useWorkPass'
+import { useAuth } from '@/contexts/AuthContext'
 import { useSpotFilters } from '@/hooks/useSpotFilters'
 import { SpotCard } from '@/components/spots/SpotCard'
 import { SpotCardFeatured } from '@/components/spots/SpotCardFeatured'
@@ -43,6 +46,9 @@ export default function ExplorePage() {
 
   const filters = useSpotFilters(spots ?? EMPTY_SPOTS)
   const { filteredSpots } = filters
+
+  const { isActive: isMember } = useIsWorkPassMember()
+  const { isLoggedIn } = useAuth()
 
   return (
     <div>
@@ -125,6 +131,46 @@ export default function ExplorePage() {
         </motion.div>
       </section>
 
+      {/* ── WorkPass member banner ── */}
+      {isMember && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-6 flex items-center gap-3 rounded-lg px-4 py-3"
+          style={{
+            background: 'color-mix(in srgb, var(--color-secondary) 16%, var(--color-surface))',
+            border: '1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent)',
+          }}
+        >
+          <span className="text-xl" aria-hidden="true">🏆</span>
+          <p className="font-sans text-sm text-text">
+            As a {SUBSCRIPTION_NAME} member you get{' '}
+            <span className="font-semibold">30% off</span> all bookings.
+          </p>
+        </motion.div>
+      )}
+
+      {/* ── WorkPass upsell (logged-in non-members) ── */}
+      {isLoggedIn && !isMember && (
+        <Link
+          to="/workpass"
+          className="mt-6 flex items-center gap-3 rounded-lg px-4 py-3 transition-shadow duration-normal hover:shadow-sm"
+          style={{
+            background: 'linear-gradient(135deg, var(--color-dark-alt) 0%, var(--color-dark) 100%)',
+          }}
+        >
+          <span className="text-xl" aria-hidden="true">🏆</span>
+          <p className="flex-1 font-sans text-sm text-inverse">
+            <span className="font-semibold">Go {SUBSCRIPTION_NAME}</span> — book spots ahead &amp;
+            save 30% on every session.
+          </p>
+          <span className="shrink-0 font-mono text-sm font-medium text-secondary">
+            See plans →
+          </span>
+        </Link>
+      )}
+
       {/* ── Section B — Editor's Picks ── */}
       <section className="py-12 md:py-16">
         <div className="mb-6">
@@ -144,7 +190,7 @@ export default function ExplorePage() {
             {featuredLoading || !featured
               ? [0, 1].map((i) => <Skeleton key={i} className="h-64 w-full rounded-lg" />)
               : featured.map((spot) => (
-                  <SpotCardFeatured key={spot.id} spot={spot} />
+                  <SpotCardFeatured key={spot.id} spot={spot} showBook={isMember} />
                 ))}
           </div>
         )}
@@ -199,7 +245,7 @@ export default function ExplorePage() {
         ) : filteredSpots.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredSpots.map((spot) => (
-              <SpotCard key={spot.id} spot={spot} />
+              <SpotCard key={spot.id} spot={spot} showBook={isMember} />
             ))}
           </div>
         ) : (

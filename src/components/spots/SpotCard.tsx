@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
 import { MetricRow } from '@/components/ui/MetricRow'
@@ -8,6 +8,8 @@ import type { Spot } from '@/types'
 
 interface SpotCardProps {
   spot: Spot
+  /** WorkPass members get a "Book a slot" shortcut below the spot name. */
+  showBook?: boolean
 }
 
 /**
@@ -15,7 +17,8 @@ interface SpotCardProps {
  * body with name / location / metrics / vibe tags. Lifts on hover.
  * Spec: docs/BUILD_PLAN.md Session 2 STEP 7.
  */
-export function SpotCard({ spot }: SpotCardProps) {
+export function SpotCard({ spot, showBook = false }: SpotCardProps) {
+  const navigate = useNavigate()
   return (
     <Link
       to={`/spot/${spot.id}`}
@@ -51,6 +54,20 @@ export function SpotCard({ spot }: SpotCardProps) {
             <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-light">
               {spot.neighbourhood} · {spotTypeLabel(spot.type)}
             </p>
+            {showBook && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  navigate(`/book/${spot.id}`)
+                }}
+                className="mt-2 inline-flex h-8 min-h-[44px] items-center rounded-pill bg-success px-3.5 font-sans text-[13px] font-semibold text-inverse transition-opacity duration-fast hover:opacity-90"
+                aria-label={`Book a slot at ${spot.name}`}
+              >
+                📅 Book a slot
+              </button>
+            )}
           </div>
 
           <MetricRow spot={spot} />
