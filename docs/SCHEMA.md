@@ -410,6 +410,80 @@ COMMIT;
 
 ---
 
+## Community v2 (Phase C1)
+
+Turns the community section from a read-only aggregation into a real, interactive,
+multi-group social layer. Runnable migration: **`docs/community-migration.sql`**
+(run it in the Supabase SQL editor — DDL needs the postgres role).
+
+```sql
+-- Groups (aka "communities"). Seeded neighbourhood/interest groups + user-created.
+CREATE TABLE groups (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug           TEXT UNIQUE NOT NULL,
+  name           TEXT NOT NULL,
+  description    TEXT,
+  cover_gradient TEXT,                       -- CSS gradient string (may use var() tokens)
+  kind           TEXT DEFAULT 'custom' CHECK (kind IN ('neighbourhood','interest','custom')),
+  neighbourhood  TEXT,                       -- set when kind = 'neighbourhood'
+  interest_tag   TEXT,                       -- set when kind = 'interest'
+  visibility     TEXT DEFAULT 'public' CHECK (visibility IN ('public','private')),
+  created_by     UUID REFERENCES profiles(id) ON DELETE SET NULL,  -- NULL = system group
+  member_count   INTEGER DEFAULT 0,          -- kept in sync by trigger
+  is_default     BOOLEAN DEFAULT FALSE,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE group_members (
+  id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id  UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  role      TEXT DEFAULT 'member' CHECK (role IN ('member','moderator','admin')),
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (group_id, user_id)
+);
+
+-- Real reactions (replaces the localStorage 👍 store in src/lib/reactions.ts).
+-- Polymorphic: target_id is the underlying row UUID as text, disambiguated by target_type.
+CREATE TABLE reactions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK (target_type IN ('checkin','review','post','comment')),
+  target_id   TEXT NOT NULL,
+  kind        TEXT DEFAULT 'like' CHECK (kind IN ('like','helpful')),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, target_type, target_id, kind)
+);
+
+-- Comment threads on activity items (and posts, from Phase C2).
+CREATE TABLE comments (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK (target_type IN ('checkin','review','post')),
+  target_id   TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Triggers:** `sync_group_member_count` (maintains `groups.member_count` on join/leave)
+and `add_group_creator_as_admin` (creator becomes an `admin` member). Both `SECURITY DEFINER`.
+
+**RLS (see the migration file for exact policies):** public groups are world-readable,
+private groups only by members (via the `is_group_member(gid)` SECURITY DEFINER helper);
+any authenticated user can create a group (`created_by = auth.uid()`); self-join is allowed
+for **public** groups only (private membership is creator/invite-managed — invites are a later
+slice); managers (`admin`/`moderator`) update, admins delete. `reactions` and `comments` are
+world-readable with own-row insert/delete (their C1 targets — check-ins/reviews — are public).
+
+**Realtime:** `comments`, `reactions`, `group_members` are added to the `supabase_realtime`
+publication (extends the earlier `checkins, rsvps`).
+
+Phase C2 adds `posts`, `follows`, `notifications`, `reports`; Phase C3 (deferred) adds
+`conversations`/`messages` for real-time chat.
+
+---
+
 ## Environment Variables
 
 These go in Vercel (and locally in `.env.local`):

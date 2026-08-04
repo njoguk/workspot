@@ -27,6 +27,10 @@ export const SCORING = {
 
 export const COMMUNITY = {
   communityName: 'Nairobi Remote Workers',
+  /** Word for a community sub-space. See docs/community-migration.sql. */
+  groupsLabel: 'Groups',
+  /** Slug of the seeded default "everyone" group (global, un-scoped feed). */
+  defaultGroupSlug: 'nairobi-remote-workers',
   eventName: 'Workcation',
   subscriptionName: 'WorkPass',
   venuePortalName: 'Partner Portal',

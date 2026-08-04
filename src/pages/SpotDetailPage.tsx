@@ -3,10 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useSpot } from '@/hooks/useSpots'
+import { useActiveCheckin } from '@/hooks/useCheckins'
 import { useAuth } from '@/contexts/AuthContext'
 import { recordSpotVisit } from '@/lib/softGate'
 import { noiseLabel, wifiClass, spotTypeLabel } from '@/lib/spot-format'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
+import { ReviewFlow } from '@/components/review/ReviewFlow'
+import { CheckInConfirm } from '@/components/checkin/CheckInConfirm'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +34,7 @@ export default function SpotDetailPage() {
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
   const { data: spot, isLoading, isError } = useSpot(id)
+  const { data: activeCheckin } = useActiveCheckin()
 
   // Soft-gate counter: record each guest spot visit (Phase 2 STEP 6).
   useEffect(() => {
@@ -38,14 +42,9 @@ export default function SpotDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, spot?.id, isLoggedIn])
 
-  // "Rating coming soon" toast for signed-in users (the review flow isn't built
-  // yet). Auto-dismisses after a moment.
-  const [showRateSoon, setShowRateSoon] = useState(false)
-  useEffect(() => {
-    if (!showRateSoon) return
-    const t = setTimeout(() => setShowRateSoon(false), 2800)
-    return () => clearTimeout(t)
-  }, [showRateSoon])
+  // Review flow (STEP 7) and check-in confirmation modals.
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [checkInOpen, setCheckInOpen] = useState(false)
 
   if (isLoading) {
     return <SpotDetailSkeleton />
@@ -112,6 +111,8 @@ export default function SpotDetailPage() {
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${spot.name} ${spot.neighbourhood} Nairobi`,
   )}`
+
+  const isCheckedInHere = Boolean(activeCheckin && activeCheckin.spot_id === spot.id)
 
   return (
     <div className="pb-28 md:pb-24">
@@ -232,25 +233,22 @@ export default function SpotDetailPage() {
             })}
           </ul>
         </div>
+
+        {/* Retrospective review path for a past visit */}
+        {isLoggedIn && !isCheckedInHere && (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            className="font-sans text-sm text-muted underline decoration-border-strong underline-offset-4 transition-colors duration-fast hover:text-primary"
+          >
+            Been here before? Leave a review
+          </button>
+        )}
       </div>
 
       {/* Sticky action bar — above the tab bar on mobile, bottom on desktop */}
       <div className="fixed inset-x-0 bottom-[68px] z-40 border-t border-border bg-surface md:bottom-0">
         <div className="relative mx-auto flex max-w-content gap-3 px-4 py-3 md:justify-start md:px-10 lg:px-[60px]">
-          <AnimatePresence>
-            {showRateSoon && (
-              <motion.div
-                role="status"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-pill bg-dark px-4 py-2 font-sans text-sm text-inverse shadow-md"
-              >
-                ✍️ Spot ratings are coming soon
-              </motion.div>
-            )}
-          </AnimatePresence>
           <a
             href={mapsUrl}
             target="_blank"
@@ -259,25 +257,87 @@ export default function SpotDetailPage() {
           >
             🗺 Get Directions
           </a>
-          {isLoggedIn ? (
-            <button
-              type="button"
-              onClick={() => setShowRateSoon(true)}
-              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
-            >
-              ✍️ Rate This Spot
-            </button>
-          ) : (
+          {!isLoggedIn ? (
             <Link
               to="/auth"
               state={{ from: `/spot/${id}` }}
               className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
             >
-              ✍️ Rate This Spot
+              📍 Check In Here
             </Link>
+          ) : isCheckedInHere ? (
+            <button
+              type="button"
+              onClick={() => setReviewOpen(true)}
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+            >
+              ✍️ Rate your visit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCheckInOpen(true)}
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+            >
+              📍 Check In Here
+            </button>
           )}
         </div>
       </div>
+
+      {reviewOpen && (
+        <ReviewFlow
+          spot={{
+            id: spot.id,
+            name: spot.name,
+            type: spot.type,
+            coverGradient: spot.coverGradient,
+            neighbourhood: spot.neighbourhood,
+            scoreLabel: spot.scoreLabel,
+          }}
+          onClose={() => setReviewOpen(false)}
+        />
+      )}
+
+      {/* Check-in confirmation for this spot */}
+      <AnimatePresence>
+        {checkInOpen && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex items-end justify-center md:items-center"
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+          >
+            <motion.button
+              type="button"
+              aria-label="Cancel"
+              onClick={() => setCheckInOpen(false)}
+              className="absolute inset-0"
+              style={{ background: 'color-mix(in srgb, var(--color-dark) 50%, transparent)' }}
+              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+              transition={{ duration: 0.25 }}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Check in at ${spot.name}`}
+              className="relative w-full max-w-content rounded-t-xl bg-surface px-5 pb-8 pt-4 shadow-xl md:mb-6 md:max-w-md md:rounded-xl md:px-6"
+              variants={{ hidden: { y: '100%' }, visible: { y: 0 } }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <h2 className="mb-3 font-display text-xl font-bold text-text">
+                Check in here
+              </h2>
+              <CheckInConfirm
+                spot={spot}
+                backLabel="Cancel"
+                onBack={() => setCheckInOpen(false)}
+                onConfirmed={() => setCheckInOpen(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

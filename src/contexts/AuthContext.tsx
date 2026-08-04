@@ -34,6 +34,8 @@ interface AuthContextValue {
   displayName: string | null
   /** 1–2 letter initials for the avatar chip. */
   initials: string
+  /** Re-fetch the current user's profiles row (after onboarding / edits). */
+  refreshProfile: () => Promise<void>
   signIn: (email: string, password: string) => Promise<AuthActionResult>
   signUp: (params: SignUpParams) => Promise<AuthActionResult>
   signInWithGoogle: () => Promise<AuthActionResult>
@@ -79,14 +81,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = session?.user ?? null
   const userId = user?.id
 
-  // Fetch the profile row for the current user. Runs on sign-in / user change.
-  useEffect(() => {
+  // Fetch (or re-fetch) the profiles row for the current user.
+  const loadProfile = useCallback(async (): Promise<void> => {
     if (!userId) {
       setProfile(null)
       return
     }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+    if (error) {
+      // A missing profile is not fatal — the signup trigger may still be
+      // catching up. Surface it in dev without breaking the app.
+      console.warn('[auth] Could not load profile:', error.message)
+      setProfile(null)
+      return
+    }
+    setProfile((data as Profile | null) ?? null)
+  }, [userId])
+
+  // Fetch the profile row for the current user. Runs on sign-in / user change.
+  useEffect(() => {
     let active = true
     ;(async () => {
+      if (!userId) {
+        setProfile(null)
+        return
+      }
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -94,8 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
       if (!active) return
       if (error) {
-        // A missing profile is not fatal — the signup trigger may still be
-        // catching up. Surface it in dev without breaking the app.
         console.warn('[auth] Could not load profile:', error.message)
         setProfile(null)
         return
@@ -178,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoggedIn: Boolean(user),
       displayName,
       initials: displayName ? initialsFrom(displayName) : '',
+      refreshProfile: loadProfile,
       signIn,
       signUp,
       signInWithGoogle,
@@ -190,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       displayName,
+      loadProfile,
       signIn,
       signUp,
       signInWithGoogle,

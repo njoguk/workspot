@@ -6,6 +6,7 @@ import SpotDetailPage from '@/pages/SpotDetailPage'
 import CheckInPage from '@/pages/CheckInPage'
 import CommunityPage from '@/pages/CommunityPage'
 import EventsPage from '@/pages/EventsPage'
+import EventDetailPage from '@/pages/EventDetailPage'
 import ProfilePage from '@/pages/ProfilePage'
 import AuthPage from '@/pages/AuthPage'
 import PartnerPage from '@/pages/PartnerPage'
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/check-in" element={<CheckInPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/events" element={<EventsPage />} />
+        <Route path="/events/:id" element={<EventDetailPage />} />
         <Route
           path="/profile"
           element={
