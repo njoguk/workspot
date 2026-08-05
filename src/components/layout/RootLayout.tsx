@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { TopNav } from '@/components/layout/TopNav'
 import { BottomTabs } from '@/components/layout/BottomTabs'
 import { PageWrapper } from '@/components/layout/PageWrapper'
+import { Footer } from '@/components/layout/Footer'
 import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { CheckInDock, useCheckinDockState } from '@/components/checkin/CheckInDock'
 
@@ -20,6 +21,7 @@ export function RootLayout() {
       <PageWrapper className={dockVisible ? 'pb-[140px] md:pb-24' : undefined}>
         <Outlet />
       </PageWrapper>
+      <Footer />
       <BottomTabs />
       <CheckInDock />
     </div>

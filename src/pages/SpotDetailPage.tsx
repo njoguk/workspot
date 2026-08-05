@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useSpot } from '@/hooks/useSpots'
 import { useActiveCheckin } from '@/hooks/useCheckins'
+import { useIsWorkPassMember } from '@/hooks/useWorkPass'
 import { useAuth } from '@/contexts/AuthContext'
 import { recordSpotVisit } from '@/lib/softGate'
 import { noiseLabel, wifiClass, spotTypeLabel } from '@/lib/spot-format'
@@ -35,6 +36,7 @@ export default function SpotDetailPage() {
   const { isLoggedIn } = useAuth()
   const { data: spot, isLoading, isError } = useSpot(id)
   const { data: activeCheckin } = useActiveCheckin()
+  const { isActive: isMember } = useIsWorkPassMember()
 
   // Soft-gate counter: record each guest spot visit (Phase 2 STEP 6).
   useEffect(() => {
@@ -248,20 +250,30 @@ export default function SpotDetailPage() {
 
       {/* Sticky action bar — above the tab bar on mobile, bottom on desktop */}
       <div className="fixed inset-x-0 bottom-[68px] z-40 border-t border-border bg-surface md:bottom-0">
-        <div className="relative mx-auto flex max-w-content gap-3 px-4 py-3 md:justify-start md:px-10 lg:px-[60px]">
+        <div className="relative mx-auto flex max-w-content gap-2 px-4 py-3 sm:gap-3 md:justify-start md:px-10 lg:px-[60px]">
           <a
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-12 flex-1 items-center justify-center rounded-pill bg-dark font-sans text-sm font-semibold text-inverse transition-colors duration-fast hover:bg-dark-alt md:flex-none md:px-8"
+            className="flex h-12 flex-1 items-center justify-center rounded-pill bg-dark px-2 text-center font-sans text-sm font-semibold leading-tight text-inverse transition-colors duration-fast hover:bg-dark-alt md:flex-none md:px-8"
           >
-            🗺 Get Directions
+            🗺 Directions
           </a>
+          {isMember && (
+            <button
+              type="button"
+              onClick={() => navigate(`/book/${id}`)}
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-success px-2 text-center font-sans text-sm font-semibold leading-tight text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+              aria-label={`Book a slot at ${spot.name}`}
+            >
+              📅 Book a slot
+            </button>
+          )}
           {!isLoggedIn ? (
             <Link
               to="/auth"
               state={{ from: `/spot/${id}` }}
-              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary px-2 text-center font-sans text-sm font-semibold leading-tight text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
             >
               📍 Check In Here
             </Link>
@@ -269,7 +281,7 @@ export default function SpotDetailPage() {
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
-              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary px-2 text-center font-sans text-sm font-semibold leading-tight text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
             >
               ✍️ Rate your visit
             </button>
@@ -277,7 +289,7 @@ export default function SpotDetailPage() {
             <button
               type="button"
               onClick={() => setCheckInOpen(true)}
-              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary font-sans text-sm font-semibold text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
+              className="flex h-12 flex-1 items-center justify-center rounded-pill bg-primary px-2 text-center font-sans text-sm font-semibold leading-tight text-inverse transition-opacity duration-fast hover:opacity-90 md:flex-none md:px-8"
             >
               📍 Check In Here
             </button>

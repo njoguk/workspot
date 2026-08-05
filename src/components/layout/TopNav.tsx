@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarCheck, LogOut, Sparkles, User } from 'lucide-react'
-import { PLATFORM, SUBSCRIPTION_NAME, VERIFIED_SPOT_COUNT } from '@/config/platform'
+import { CalendarCheck, LogOut, Sparkles, Store, User } from 'lucide-react'
+import { PLATFORM, SUBSCRIPTION_NAME } from '@/config/platform'
 import { useAuth } from '@/contexts/AuthContext'
 import { useIsWorkPassMember } from '@/hooks/useWorkPass'
+import { usePlatformStats } from '@/hooks/usePlatformStats'
+import { cn } from '@/lib/utils'
+
+/** Primary destinations shown as inline links on desktop (mirrors BottomTabs). */
+const NAV_LINKS: { to: string; label: string; end?: boolean }[] = [
+  { to: '/', label: 'Explore', end: true },
+  { to: '/check-in', label: 'Check In' },
+  { to: '/community', label: 'Community' },
+  { to: '/events', label: 'Events' },
+]
 
 /**
  * Fixed 64px top bar. Cream background with backdrop-blur, subtle bottom
@@ -15,6 +25,7 @@ import { useIsWorkPassMember } from '@/hooks/useWorkPass'
 export function TopNav() {
   const { isLoggedIn, initials, displayName, signOut } = useAuth()
   const { isActive: isMember } = useIsWorkPassMember()
+  const { data: stats } = usePlatformStats()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -52,31 +63,53 @@ export function TopNav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-16 border-b border-border bg-bg backdrop-blur-md">
       <div className="mx-auto flex h-full max-w-content items-center justify-between px-4 md:px-10 lg:px-[60px]">
-        {/* Logo */}
-        <Link to="/" className="flex items-baseline gap-1.5" aria-label={`${PLATFORM.name} home`}>
-          <span className="font-display text-xl font-bold tracking-tight text-text">
-            {PLATFORM.name}
-          </span>
-          <span className="font-display text-lg italic text-muted">Nairobi</span>
-        </Link>
+        {/* Logo + desktop nav */}
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-baseline gap-1.5" aria-label={`${PLATFORM.name} home`}>
+            <span className="font-display text-xl font-bold tracking-tight text-text">
+              {PLATFORM.name}
+            </span>
+            <span className="font-display text-lg italic text-muted">Nairobi</span>
+          </Link>
+
+          <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  cn(
+                    'font-sans text-sm font-medium transition-colors duration-fast',
+                    isActive ? 'text-primary' : 'text-muted hover:text-text',
+                  )
+                }
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
 
         {/* Right cluster */}
         <div className="flex items-center gap-3 md:gap-4">
-          {/* Live verified-spot count */}
-          <div
-            className="hidden items-center gap-2 sm:flex"
-            aria-label={`${VERIFIED_SPOT_COUNT} verified spots`}
-          >
-            <motion.span
-              className="inline-block h-2 w-2 rounded-pill bg-success"
-              animate={{ opacity: [1, 0.35, 1], scale: [1, 1.25, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              aria-hidden="true"
-            />
-            <span className="font-mono text-xs text-muted">
-              {VERIFIED_SPOT_COUNT} verified spots
-            </span>
-          </div>
+          {/* Live verified-spot count — only once we have a meaningful number */}
+          {typeof stats?.spotCount === 'number' && stats.spotCount >= 5 && (
+            <div
+              className="hidden items-center gap-2 sm:flex"
+              aria-label={`${stats.spotCount} verified spots`}
+            >
+              <motion.span
+                className="inline-block h-2 w-2 rounded-pill bg-success"
+                animate={{ opacity: [1, 0.35, 1], scale: [1, 1.25, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                aria-hidden="true"
+              />
+              <span className="font-mono text-xs text-muted">
+                {stats.spotCount} verified spots
+              </span>
+            </div>
+          )}
 
           {isLoggedIn && isMember && (
             /* WorkPass member badge */
@@ -128,6 +161,9 @@ export function TopNav() {
                     >
                       My Bookings
                     </MenuItem>
+                    <MenuItem icon={<Store size={16} />} onClick={() => go('/partner')}>
+                      List a Space
+                    </MenuItem>
                     <div className="my-1 h-px bg-border" aria-hidden="true" />
                     <MenuItem icon={<LogOut size={16} />} onClick={handleSignOut}>
                       Sign Out
@@ -137,13 +173,21 @@ export function TopNav() {
               </AnimatePresence>
             </div>
           ) : (
-            /* List a Space CTA (signed out) */
-            <Link
-              to="/partner"
-              className="inline-flex h-9 min-h-[44px] items-center justify-center rounded-pill bg-dark px-4 font-sans text-sm font-semibold text-inverse transition-colors duration-fast hover:bg-dark-alt"
-            >
-              List a Space
-            </Link>
+            /* Auth + List a Space CTAs (signed out) */
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Link
+                to="/auth"
+                className="inline-flex h-9 min-h-[44px] items-center justify-center rounded-pill px-3 font-sans text-sm font-semibold text-text transition-colors duration-fast hover:text-primary"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/partner"
+                className="inline-flex h-9 min-h-[44px] items-center justify-center rounded-pill bg-dark px-4 font-sans text-sm font-semibold text-inverse transition-colors duration-fast hover:bg-dark-alt"
+              >
+                List a Space
+              </Link>
+            </div>
           )}
         </div>
       </div>

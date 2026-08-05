@@ -1,13 +1,16 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { PLATFORM, SUBSCRIPTION_NAME, VERIFIED_SPOT_COUNT } from '@/config/platform'
+import { PLATFORM, SUBSCRIPTION_NAME } from '@/config/platform'
 import type { Spot } from '@/types'
-import { Link } from 'react-router-dom'
-import { useSpots, useFeaturedSpots } from '@/hooks/useSpots'
+import { Link, useLocation } from 'react-router-dom'
+import { useSpots, useFeaturedSpots, useHeroSpots } from '@/hooks/useSpots'
 import { useIsWorkPassMember } from '@/hooks/useWorkPass'
+import { usePlatformStats } from '@/hooks/usePlatformStats'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSpotFilters } from '@/hooks/useSpotFilters'
 import { SpotCard } from '@/components/spots/SpotCard'
 import { SpotCardFeatured } from '@/components/spots/SpotCardFeatured'
+import { HeroSpotCarousel } from '@/components/explore/HeroSpotCarousel'
 import { FilterBar } from '@/components/explore/FilterBar'
 import { Skeleton, SpotCardSkeleton } from '@/components/ui/Skeleton'
 import { SoftGateSheet } from '@/components/auth/SoftGateSheet'
@@ -20,13 +23,6 @@ const item = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
 }
-
-const HERO_STATS = [
-  { value: String(VERIFIED_SPOT_COUNT), label: 'Verified Spots' },
-  { value: '12', label: 'Neighbourhoods' },
-  { value: '830+', label: 'Reviews' },
-  { value: 'Free', label: 'Always' },
-]
 
 /** Stable empty reference so useSpotFilters' memo doesn't recompute each render. */
 const EMPTY_SPOTS: Spot[] = []
@@ -44,11 +40,39 @@ export default function ExplorePage() {
     isError: featuredError,
   } = useFeaturedSpots()
 
+  const { data: heroSpots, isLoading: heroLoading } = useHeroSpots()
+  const { data: platformStats } = usePlatformStats()
+
   const filters = useSpotFilters(spots ?? EMPTY_SPOTS)
   const { filteredSpots } = filters
 
   const { isActive: isMember } = useIsWorkPassMember()
   const { isLoggedIn } = useAuth()
+
+  // Honest stats: only surface a number once it clears a small threshold, so we
+  // never advertise near-empty totals. "Free · Always" is a value prop, always shown.
+  const heroStats: { value: string; label: string }[] = []
+  if (platformStats) {
+    if (platformStats.spotCount >= 5)
+      heroStats.push({ value: String(platformStats.spotCount), label: 'Verified Spots' })
+    if (platformStats.neighbourhoodCount >= 3)
+      heroStats.push({ value: String(platformStats.neighbourhoodCount), label: 'Neighbourhoods' })
+    if (platformStats.reviewCount >= 20)
+      heroStats.push({ value: String(platformStats.reviewCount), label: 'Reviews' })
+  }
+  heroStats.push({ value: 'Free', label: 'Always' })
+
+  // Support /#all-spots deep links (e.g. from the WorkPass "Explore spots" CTA).
+  const location = useLocation()
+  useEffect(() => {
+    if (location.hash !== '#all-spots') return
+    const el = document.getElementById('all-spots')
+    if (!el) return
+    const id = window.requestAnimationFrame(() =>
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    )
+    return () => window.cancelAnimationFrame(id)
+  }, [location.hash, spotsLoading, featuredLoading])
 
   return (
     <div>
@@ -78,56 +102,61 @@ export default function ExplorePage() {
           variants={container}
           initial="hidden"
           animate="show"
-          className="relative mx-auto w-full max-w-content px-4 py-16 md:px-10 md:py-20 lg:px-[60px]"
+          className="relative mx-auto grid w-full max-w-content grid-cols-1 items-center gap-10 px-4 py-16 md:px-10 md:py-20 lg:grid-cols-[1fr_minmax(320px,400px)] lg:gap-14 lg:px-[60px]"
         >
-          <motion.div variants={item} className="flex items-center gap-3">
-            <span className="h-px w-7 bg-secondary" aria-hidden="true" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-secondary">
-              {PLATFORM.shortDescription}
-            </span>
+          {/* Left — editorial copy + honest stats */}
+          <div>
+            <motion.div variants={item} className="flex items-center gap-3">
+              <span className="h-px w-7 bg-secondary" aria-hidden="true" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-secondary">
+                {PLATFORM.shortDescription}
+              </span>
+            </motion.div>
+
+            <motion.h1
+              variants={item}
+              className="mt-5 max-w-3xl font-display font-black leading-[1.04] text-inverse"
+              style={{ fontSize: 'clamp(40px, 6vw, 76px)' }}
+            >
+              Find your <span className="italic text-secondary">spot.</span> Do your
+              best work.
+            </motion.h1>
+
+            <motion.p
+              variants={item}
+              className="mt-6 max-w-xl font-sans text-base leading-relaxed"
+              style={{
+                color: 'color-mix(in srgb, var(--color-text-inverse) 65%, transparent)',
+              }}
+            >
+              Discover, check in, review, and book workspace sessions at Nairobi's
+              best cafés, hotels, gardens, and coworking spaces.
+            </motion.p>
+
+            <motion.dl variants={item} className="mt-10 flex flex-wrap gap-x-10 gap-y-6">
+              {heroStats.map((stat) => (
+                <div key={stat.label}>
+                  <dd className="font-display text-[32px] font-bold text-inverse">
+                    {stat.value}
+                  </dd>
+                  <dt
+                    className="font-mono text-[10px] uppercase tracking-[0.15em]"
+                    style={{
+                      color:
+                        'color-mix(in srgb, var(--color-text-inverse) 35%, transparent)',
+                    }}
+                  >
+                    {stat.label}
+                  </dt>
+                </div>
+              ))}
+            </motion.dl>
+          </div>
+
+          {/* Right — story-style carousel of featured / premium spots */}
+          <motion.div variants={item} className="w-full">
+            <HeroSpotCarousel spots={heroSpots} isLoading={heroLoading} showBook={isMember} />
           </motion.div>
-
-          <motion.h1
-            variants={item}
-            className="mt-5 max-w-4xl font-display font-black leading-[1.04] text-inverse"
-            style={{ fontSize: 'clamp(48px, 8vw, 100px)' }}
-          >
-            Find your <span className="italic text-secondary">spot.</span> Do your
-            best work.
-          </motion.h1>
-
-          <motion.p
-            variants={item}
-            className="mt-6 max-w-xl font-sans text-base leading-relaxed"
-            style={{
-              color: 'color-mix(in srgb, var(--color-text-inverse) 65%, transparent)',
-            }}
-          >
-            Discover, check in, review, and book workspace sessions at Nairobi's
-            best cafés, hotels, gardens, and coworking spaces.
-          </motion.p>
-
-          <motion.dl
-            variants={item}
-            className="mt-12 flex flex-wrap gap-x-10 gap-y-6"
-          >
-            {HERO_STATS.map((stat) => (
-              <div key={stat.label}>
-                <dd className="font-display text-[32px] font-bold text-inverse">
-                  {stat.value}
-                </dd>
-                <dt
-                  className="font-mono text-[10px] uppercase tracking-[0.15em]"
-                  style={{
-                    color:
-                      'color-mix(in srgb, var(--color-text-inverse) 35%, transparent)',
-                  }}
-                >
-                  {stat.label}
-                </dt>
-              </div>
-            ))}
-          </motion.dl>
         </motion.div>
       </section>
 
@@ -197,7 +226,7 @@ export default function ExplorePage() {
       </section>
 
       {/* ── Section C — All Spots ── */}
-      <section className="pb-16">
+      <section id="all-spots" className="scroll-mt-20 pb-16">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-display text-[28px] font-bold text-text">All Spots</h2>
           <div className="flex items-center gap-3">

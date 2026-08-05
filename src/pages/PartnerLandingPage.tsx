@@ -70,10 +70,10 @@ export default function PartnerLandingPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="full-bleed min-h-[calc(100dvh_-_4rem)]">
+    <div className="full-bleed">
       <div className="grid grid-cols-1 lg:grid-cols-2">
         {/* ── Left: dark pitch ── */}
-        <section className="relative overflow-hidden bg-dark px-6 py-14 md:px-12 lg:px-[60px] lg:py-24">
+        <section className="relative overflow-hidden bg-dark px-6 py-14 md:px-12 lg:flex lg:min-h-[calc(100dvh_-_4rem)] lg:items-center lg:px-[60px] lg:py-24">
           {/* Subtle line pattern, 4% opacity */}
           <div
             className="pointer-events-none absolute inset-0"
@@ -131,8 +131,8 @@ export default function PartnerLandingPage() {
         </section>
 
         {/* ── Right: tier comparison ── */}
-        <section className="bg-surface px-6 py-14 md:px-12 lg:px-[60px] lg:py-24">
-          <div className="mx-auto max-w-xl">
+        <section className="bg-surface px-6 py-14 md:px-12 lg:flex lg:min-h-[calc(100dvh_-_4rem)] lg:items-center lg:px-[60px] lg:py-24">
+          <div className="mx-auto w-full max-w-xl">
             <h2 className="font-display text-[26px] font-bold text-text">Choose your listing type</h2>
             <p className="mt-2 font-sans text-sm text-muted">
               Start free, upgrade when you’re ready to take bookings. Change plans anytime.

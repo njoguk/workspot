@@ -26,7 +26,8 @@ export function useCheckinDockState(): { visible: boolean; active: ActiveCheckin
     pathname.startsWith('/spot/') ||
     pathname === '/check-in' ||
     pathname.startsWith('/book') ||
-    pathname.startsWith('/workpass')
+    pathname.startsWith('/workpass') ||
+    pathname.startsWith('/partner')
   const visible = isLoggedIn && !hidden
   return { visible, active: visible ? active ?? null : null }
 }

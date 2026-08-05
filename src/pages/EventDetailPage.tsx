@@ -231,12 +231,18 @@ export default function EventDetailPage() {
           </section>
         )}
 
-        {/* Attendees */}
+        {/* Attendees — live "who's going" for upcoming events, a simple count once past */}
         <section>
           <h2 className="mb-3 font-mono text-[11px] uppercase tracking-widest text-light">
-            Who&rsquo;s going
+            {isPast ? 'Attendance' : "Who's going"}
           </h2>
-          {rsvps && rsvps.length > 0 ? (
+          {isPast ? (
+            <p className="font-sans text-sm text-muted">
+              {rsvps && rsvps.length > 0
+                ? `${rsvps.length} ${rsvps.length === 1 ? 'person' : 'people'} attended`
+                : 'No attendance recorded.'}
+            </p>
+          ) : rsvps && rsvps.length > 0 ? (
             <div className="flex items-center gap-3">
               <AvatarStack
                 people={rsvps.map((r) => ({ name: r.display_name, seed: r.user_id }))}

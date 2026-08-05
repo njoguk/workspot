@@ -50,6 +50,7 @@ export interface Spot {
   typeAttributes: Record<string, unknown>
   isNew?: boolean
   isPremiumListing?: boolean
+  isFeaturedListing?: boolean
 }
 
 // ── Database row types (docs/SCHEMA.md) ────────────────────────

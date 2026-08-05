@@ -34,6 +34,7 @@ interface SpotRow {
   price_entry: string | null
   price_type: string | null
   is_premium_listing: boolean | null
+  is_featured_listing: boolean | null
 }
 
 const FALLBACK_GRADIENT =
@@ -61,11 +62,12 @@ function mapRow(row: SpotRow): Spot {
     coverGradient: row.cover_gradient ?? FALLBACK_GRADIENT,
     typeAttributes: attrs,
     isPremiumListing: row.is_premium_listing ?? undefined,
+    isFeaturedListing: row.is_featured_listing ?? undefined,
   }
 }
 
 const SPOT_COLUMNS =
-  'id, name, neighbourhood, type, space_family, score_label, description, cover_gradient, type_attributes, vibe_tags, best_times, work_score, review_count, price_entry, price_type, is_premium_listing'
+  'id, name, neighbourhood, type, space_family, score_label, description, cover_gradient, type_attributes, vibe_tags, best_times, work_score, review_count, price_entry, price_type, is_premium_listing, is_featured_listing'
 
 /** All spots, highest WorkScore first. */
 export function useSpots() {
@@ -109,6 +111,29 @@ export function useFeaturedSpots() {
         .select(SPOT_COLUMNS)
         .order('work_score', { ascending: false })
         .limit(2)
+      if (error) throw error
+      return (data as SpotRow[]).map(mapRow)
+    },
+  })
+}
+
+/**
+ * Spots for the homepage hero carousel — prime "featured" placement, then
+ * "premium", then highest WorkScore as a graceful fallback so the carousel is
+ * never empty even before any partner has paid for a tier. This is the paid
+ * placement the listing tiers advertise.
+ */
+export function useHeroSpots(limit = 6) {
+  return useQuery<Spot[]>({
+    queryKey: ['spots', 'hero', limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('spots')
+        .select(SPOT_COLUMNS)
+        .order('is_featured_listing', { ascending: false, nullsFirst: false })
+        .order('is_premium_listing', { ascending: false, nullsFirst: false })
+        .order('work_score', { ascending: false })
+        .limit(limit)
       if (error) throw error
       return (data as SpotRow[]).map(mapRow)
     },

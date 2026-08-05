@@ -213,7 +213,7 @@ export default function WorkPassPage() {
             profile={profile}
             daysLeft={daysLeft}
             expiresAt={expiresAt}
-            onBrowse={() => navigate('/')}
+            onBrowse={() => navigate('/#all-spots')}
             onBookings={() => navigate('/bookings')}
           />
         ) : screen === 'pitch' ? (
