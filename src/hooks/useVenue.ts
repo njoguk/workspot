@@ -23,6 +23,7 @@ export interface PartnerVenue {
   workScore: number
   reviewCount: number
   coverGradient: string | null
+  coverImageUrl: string | null
   description: string
   mapsUrl: string
   priceEntry: string
@@ -59,6 +60,7 @@ interface VenueSettingsRow {
     work_score: number | string | null
     review_count: number | null
     cover_gradient: string | null
+    cover_image_url: string | null
     description: string | null
     maps_url: string | null
     price_entry: string | null
@@ -69,7 +71,7 @@ interface VenueSettingsRow {
 }
 
 const VENUE_SELECT =
-  'id, spot_id, workpass_discount_pct, max_seats_per_slot, slot_duration_hours, advance_booking_days, available_slots, payout_mpesa_number, total_earned_kes, pending_payout_kes, created_at, spot:spots(id, name, neighbourhood, type, work_score, review_count, cover_gradient, description, maps_url, price_entry, is_premium_listing, is_featured_listing, type_attributes)'
+  'id, spot_id, workpass_discount_pct, max_seats_per_slot, slot_duration_hours, advance_booking_days, available_slots, payout_mpesa_number, total_earned_kes, pending_payout_kes, created_at, spot:spots(id, name, neighbourhood, type, work_score, review_count, cover_gradient, cover_image_url, description, maps_url, price_entry, is_premium_listing, is_featured_listing, type_attributes)'
 
 function mapVenue(row: VenueSettingsRow): PartnerVenue | null {
   const spot = row.spot
@@ -85,6 +87,7 @@ function mapVenue(row: VenueSettingsRow): PartnerVenue | null {
     workScore: Number(spot.work_score ?? 0),
     reviewCount: spot.review_count ?? 0,
     coverGradient: spot.cover_gradient,
+    coverImageUrl: spot.cover_image_url,
     description: spot.description ?? '',
     mapsUrl: spot.maps_url ?? '',
     priceEntry: spot.price_entry ?? '',
@@ -132,6 +135,7 @@ export interface VenueFormInput {
   neighbourhood: string
   type: SpotType
   mapsUrl: string
+  coverImageUrl?: string | null
   description: string
   wifiMbps: number
   priceEntry: string
@@ -161,6 +165,7 @@ export function useUpsertVenue() {
         neighbourhood: input.neighbourhood,
         type: input.type,
         maps_url: input.mapsUrl || null,
+        cover_image_url: input.coverImageUrl ?? null,
         description: input.description || null,
         price_entry: input.priceEntry || null,
         price_type: priceType,

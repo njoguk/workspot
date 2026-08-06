@@ -26,6 +26,7 @@ interface SpotRow {
   score_label: string | null
   description: string | null
   cover_gradient: string | null
+  cover_image_url: string | null
   type_attributes: Record<string, unknown> | null
   vibe_tags: string[] | null
   best_times: string[] | null
@@ -60,6 +61,7 @@ function mapRow(row: SpotRow): Spot {
     bestTimes: row.best_times ?? [],
     description: row.description ?? '',
     coverGradient: row.cover_gradient ?? FALLBACK_GRADIENT,
+    coverImageUrl: row.cover_image_url ?? null,
     typeAttributes: attrs,
     isPremiumListing: row.is_premium_listing ?? undefined,
     isFeaturedListing: row.is_featured_listing ?? undefined,
@@ -67,7 +69,7 @@ function mapRow(row: SpotRow): Spot {
 }
 
 const SPOT_COLUMNS =
-  'id, name, neighbourhood, type, space_family, score_label, description, cover_gradient, type_attributes, vibe_tags, best_times, work_score, review_count, price_entry, price_type, is_premium_listing, is_featured_listing'
+  'id, name, neighbourhood, type, space_family, score_label, description, cover_gradient, cover_image_url, type_attributes, vibe_tags, best_times, work_score, review_count, price_entry, price_type, is_premium_listing, is_featured_listing'
 
 /** All spots, highest WorkScore first. */
 export function useSpots() {

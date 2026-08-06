@@ -31,6 +31,15 @@ export function SpotCardFeatured({ spot, className, showBook = false }: SpotCard
         className="relative h-[440px] overflow-hidden rounded-lg shadow-md"
         style={{ background: spot.coverGradient }}
       >
+        {spot.coverImageUrl && (
+          <img
+            src={spot.coverImageUrl}
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+
         {/* Dark overlay (earth-toned, bottom → top) */}
         <div
           className="absolute inset-0"

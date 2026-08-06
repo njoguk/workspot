@@ -125,6 +125,13 @@ export default function SpotDetailPage() {
         className="full-bleed relative h-[260px] overflow-hidden md:h-[540px]"
         style={{ background: spot.coverGradient }}
       >
+        {spot.coverImageUrl && (
+          <img
+            src={spot.coverImageUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
         <div
           className="absolute inset-0"
           style={{

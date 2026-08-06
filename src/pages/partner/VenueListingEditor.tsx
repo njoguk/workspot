@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 import { useUpsertVenue, type PartnerVenue, type VenueFormInput } from '@/hooks/useVenue'
+import { uploadSpotImage } from '@/lib/storage'
 import { SLOT_CHOICES, SPOT_TYPE_OPTIONS } from '@/lib/partner'
 import { SectionHeading } from '@/components/partner/partner-ui'
 import { cn } from '@/lib/utils'
@@ -24,6 +25,7 @@ interface FormState {
   neighbourhood: string
   type: SpotType
   mapsUrl: string
+  coverImageUrl: string | null
   description: string
   wifiMbps: number
   priceEntry: string
@@ -42,6 +44,7 @@ function initialState(venue: PartnerVenue | null): FormState {
     neighbourhood: venue?.neighbourhood ?? '',
     type: venue?.type ?? 'cafe',
     mapsUrl: venue?.mapsUrl ?? '',
+    coverImageUrl: venue?.coverImageUrl ?? null,
     description: venue?.description ?? '',
     wifiMbps: venue?.wifiMbps ?? 50,
     priceEntry: venue?.priceEntry ?? '',
@@ -66,9 +69,24 @@ export function VenueListingEditor({
   const upsert = useUpsertVenue()
   const [form, setForm] = useState<FormState>(() => initialState(venue))
   const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function handleCoverUpload(file: File) {
+    setUploading(true)
+    setError(null)
+    try {
+      const url = await uploadSpotImage(file, venue?.spotId ?? null)
+      set('coverImageUrl', url)
+      showToast('Cover photo uploaded', { icon: '🖼️' })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed — please try again.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   function toggleSlot(slot: string) {
@@ -126,6 +144,48 @@ export function VenueListingEditor({
                 {opt.label}
               </Segment>
             ))}
+          </div>
+        </Field>
+        <Field label="Cover photo">
+          <div className="flex items-center gap-4">
+            <div
+              className="h-20 w-32 shrink-0 overflow-hidden rounded-md border border-border"
+              style={form.coverImageUrl ? undefined : { background: 'var(--color-surface-alt)' }}
+            >
+              {form.coverImageUrl && (
+                <img
+                  src={form.coverImageUrl}
+                  alt="Cover preview"
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+            <div className="flex flex-col items-start gap-1.5">
+              <label className="inline-flex min-h-[40px] cursor-pointer items-center rounded-pill border border-border-strong px-4 font-sans text-[13px] font-medium text-text transition-colors duration-fast hover:border-primary hover:text-primary">
+                {uploading ? 'Uploading…' : form.coverImageUrl ? 'Replace photo' : 'Upload photo'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) void handleCoverUpload(file)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {form.coverImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => set('coverImageUrl', null)}
+                  className="font-sans text-[12px] text-muted underline decoration-border-strong underline-offset-2 hover:text-primary"
+                >
+                  Remove
+                </button>
+              )}
+              <p className="font-mono text-[10px] text-light">JPG, PNG, or WebP · up to 5 MB</p>
+            </div>
           </div>
         </Field>
         <Field label="Google Maps URL">

@@ -32,9 +32,17 @@ export function SpotCard({ spot, showBook = false }: SpotCardProps) {
       >
         {/* Cover */}
         <div
-          className="relative h-[180px]"
+          className="relative h-[180px] overflow-hidden"
           style={{ background: spot.coverGradient }}
         >
+          {spot.coverImageUrl && (
+            <img
+              src={spot.coverImageUrl}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
           {spot.isNew && (
             <span className="absolute left-3 top-3 rounded-pill bg-surface px-2 py-1 font-mono text-[10px] font-medium text-dark shadow-sm">
               🆕 New

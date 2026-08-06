@@ -47,6 +47,7 @@ export interface Spot {
   bestTimes: string[]
   description: string
   coverGradient: string
+  coverImageUrl?: string | null
   typeAttributes: Record<string, unknown>
   isNew?: boolean
   isPremiumListing?: boolean
