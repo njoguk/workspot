@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
  * subscribes to realtime while it's open.
  */
 
-export type CommentTargetType = 'checkin' | 'review' | 'post'
+export type CommentTargetType = 'checkin' | 'review' | 'post' | 'tip'
 
 export interface CommentItem {
   id: string

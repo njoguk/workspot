@@ -13,6 +13,8 @@ import {
 import { Avatar } from '@/components/ui/Avatar'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { PastCheckIns } from '@/components/checkin/PastCheckIns'
+import { deriveBadges } from '@/lib/badges'
 import { timeAgo } from '@/lib/time'
 import {
   milestoneReached,
@@ -27,12 +29,6 @@ const ROLE_LABEL: Record<ProfileRole, string> = {
   remote_employee: 'Remote Employee',
   founder: 'Founder',
   nomad: 'Digital Nomad',
-}
-
-interface BadgeSpec {
-  emoji: string
-  label: string
-  earned: boolean
 }
 
 export default function ProfilePage() {
@@ -59,15 +55,14 @@ export default function ProfilePage() {
     setMilestone(null)
   }
 
-  const badges: BadgeSpec[] = [
-    { emoji: '🌿', label: 'Garden Lover', earned: (badgeData.data?.gardenCheckins ?? 0) >= 5 },
-    { emoji: '⚡', label: 'WiFi Tester', earned: (badgeData.data?.wifiTests ?? 0) >= 5 },
-    { emoji: '🔥', label: '7 Day Streak', earned: longest >= 7 },
-    { emoji: '🔥', label: '14 Day Streak', earned: longest >= 14 },
-    { emoji: '🎉', label: 'Workcation Pro', earned: (badgeData.data?.eventsAttended ?? 0) >= 1 },
-    { emoji: '🗺', label: 'All Hoods', earned: (badgeData.data?.distinctHoods ?? 0) >= 7 },
-    { emoji: '🏆', label: 'Top Reviewer', earned: (badgeData.data?.reviewCount ?? 0) >= 10 },
-  ]
+  const badges = deriveBadges({
+    gardenCheckins: badgeData.data?.gardenCheckins ?? 0,
+    wifiTests: badgeData.data?.wifiTests ?? 0,
+    eventsAttended: badgeData.data?.eventsAttended ?? 0,
+    distinctHoods: badgeData.data?.distinctHoods ?? 0,
+    reviewCount: badgeData.data?.reviewCount ?? 0,
+    longestStreak: longest,
+  })
 
   return (
     <div className="pb-16">
@@ -169,9 +164,9 @@ export default function ProfilePage() {
       <section className="mt-8">
         <h2 className="mb-3 font-display text-xl font-bold text-text">Badges</h2>
         <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
-          {badges.map((badge, i) => (
+          {badges.map((badge) => (
             <div
-              key={`${badge.label}-${i}`}
+              key={badge.id}
               className="flex flex-col items-center rounded-lg border border-border bg-surface p-3 text-center"
             >
               <span
@@ -216,6 +211,14 @@ export default function ProfilePage() {
             You haven&rsquo;t checked in anywhere yet.
           </p>
         )}
+      </section>
+
+      {/* Check-in history */}
+      <section className="mt-8">
+        <h2 className="mb-3 font-display text-xl font-bold text-text">
+          Your check-in history
+        </h2>
+        <PastCheckIns userId={userId} />
       </section>
 
       {/* Milestone celebration */}

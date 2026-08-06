@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
  * feed doesn't fire N requests.
  */
 
-export type ReactionTargetType = 'checkin' | 'review' | 'post' | 'comment'
+export type ReactionTargetType = 'checkin' | 'review' | 'post' | 'comment' | 'tip'
 export type ReactionKind = 'like' | 'helpful'
 
 export interface ReactionState {

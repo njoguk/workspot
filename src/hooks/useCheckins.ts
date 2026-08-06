@@ -180,6 +180,89 @@ export function useSpotCompanions(
   return query
 }
 
+// ── Past check-in history ──────────────────────────────────────
+
+export interface PastCheckin {
+  id: string
+  spotId: string | null
+  spotName: string | null
+  spotNeighbourhood: string | null
+  coverGradient: string | null
+  checkedInAt: string
+  checkedOutAt: string | null
+  /** Whether the user has left a review / tip for this spot. */
+  youReviewed: boolean
+  youTipped: boolean
+}
+
+interface RawPastCheckin {
+  id: string
+  spot_id: string | null
+  checked_in_at: string
+  checked_out_at: string | null
+  spot: {
+    name: string | null
+    neighbourhood: string | null
+    cover_gradient: string | null
+  } | null
+}
+
+/**
+ * The user's own check-in history (newest first), annotated with whether they
+ * left a review or tip for that spot. The tips lookup is best-effort so the
+ * history still loads before the tips migration is applied.
+ */
+export function usePastCheckins(userId: string | undefined, limit = 15) {
+  return useQuery<PastCheckin[]>({
+    queryKey: ['checkin', 'history', userId, limit],
+    enabled: Boolean(userId),
+    queryFn: async () => {
+      const checkinsRes = await supabase
+        .from('checkins')
+        .select(
+          'id, spot_id, checked_in_at, checked_out_at, spot:spots(name, neighbourhood, cover_gradient)',
+        )
+        .eq('user_id', userId!)
+        .order('checked_in_at', { ascending: false })
+        .limit(limit)
+      if (checkinsRes.error) throw checkinsRes.error
+
+      const rows = (checkinsRes.data as unknown as RawPastCheckin[]) ?? []
+      const spotIds = [
+        ...new Set(rows.map((r) => r.spot_id).filter((s): s is string => Boolean(s))),
+      ]
+
+      const reviewedSpots = new Set<string>()
+      const tippedSpots = new Set<string>()
+      if (spotIds.length > 0) {
+        const [reviewsRes, tipsRes] = await Promise.all([
+          supabase.from('reviews').select('spot_id').eq('user_id', userId!).in('spot_id', spotIds),
+          supabase.from('tips').select('spot_id').eq('user_id', userId!).in('spot_id', spotIds),
+        ])
+        if (!reviewsRes.error)
+          for (const r of (reviewsRes.data as { spot_id: string | null }[]) ?? [])
+            if (r.spot_id) reviewedSpots.add(r.spot_id)
+        // tips table may not exist yet (migration pending) — ignore its error.
+        if (!tipsRes.error)
+          for (const t of (tipsRes.data as { spot_id: string | null }[]) ?? [])
+            if (t.spot_id) tippedSpots.add(t.spot_id)
+      }
+
+      return rows.map((r) => ({
+        id: r.id,
+        spotId: r.spot_id,
+        spotName: r.spot?.name ?? null,
+        spotNeighbourhood: r.spot?.neighbourhood ?? null,
+        coverGradient: r.spot?.cover_gradient ?? null,
+        checkedInAt: r.checked_in_at,
+        checkedOutAt: r.checked_out_at,
+        youReviewed: r.spot_id ? reviewedSpots.has(r.spot_id) : false,
+        youTipped: r.spot_id ? tippedSpots.has(r.spot_id) : false,
+      }))
+    },
+  })
+}
+
 // ── Mutations: check in / check out ────────────────────────────
 
 /** Check-in and check-out mutations, with streak bookkeeping on check-in. */

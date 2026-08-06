@@ -39,6 +39,12 @@ export interface FeedItem {
   spotName: string | null
   /** Verb phrase, e.g. "checked in at" / "reviewed". */
   action: string
+  /** Extra context: a review comment or a check-in session note. */
+  note: string | null
+  /** Review quick tags (empty for check-ins). */
+  quickTags: string[]
+  spotNeighbourhood: string | null
+  spotType: string | null
 }
 
 interface RawCheckin {
@@ -46,8 +52,9 @@ interface RawCheckin {
   user_id: string
   spot_id: string | null
   checked_in_at: string
+  session_note: string | null
   profile: { display_name: string | null } | null
-  spot: { name: string | null } | null
+  spot: { name: string | null; neighbourhood: string | null; type: string | null } | null
 }
 
 interface RawReview {
@@ -55,9 +62,11 @@ interface RawReview {
   user_id: string
   spot_id: string | null
   overall_score: number | string | null
+  comment: string | null
+  quick_tags: string[] | null
   created_at: string
   profile: { display_name: string | null } | null
-  spot: { name: string | null } | null
+  spot: { name: string | null; neighbourhood: string | null; type: string | null } | null
 }
 
 export function useActivityFeed(memberIds?: Scope) {
@@ -69,14 +78,14 @@ export function useActivityFeed(memberIds?: Scope) {
       let checkinQ = supabase
         .from('checkins')
         .select(
-          'id, user_id, spot_id, checked_in_at, profile:profiles(display_name), spot:spots(name)',
+          'id, user_id, spot_id, checked_in_at, session_note, profile:profiles(display_name), spot:spots(name, neighbourhood, type)',
         )
         .order('checked_in_at', { ascending: false })
         .limit(20)
       let reviewQ = supabase
         .from('reviews')
         .select(
-          'id, user_id, spot_id, overall_score, created_at, profile:profiles(display_name), spot:spots(name)',
+          'id, user_id, spot_id, overall_score, comment, quick_tags, created_at, profile:profiles(display_name), spot:spots(name, neighbourhood, type)',
         )
         .order('created_at', { ascending: false })
         .limit(20)
@@ -101,6 +110,10 @@ export function useActivityFeed(memberIds?: Scope) {
           spotId: c.spot_id,
           spotName: c.spot?.name ?? null,
           action: 'checked in at',
+          note: c.session_note?.trim() || null,
+          quickTags: [],
+          spotNeighbourhood: c.spot?.neighbourhood ?? null,
+          spotType: c.spot?.type ?? null,
         }),
       )
 
@@ -118,6 +131,10 @@ export function useActivityFeed(memberIds?: Scope) {
             r.overall_score != null
               ? `reviewed · ${Number(r.overall_score).toFixed(1)}`
               : 'reviewed',
+          note: r.comment?.trim() || null,
+          quickTags: r.quick_tags ?? [],
+          spotNeighbourhood: r.spot?.neighbourhood ?? null,
+          spotType: r.spot?.type ?? null,
         }),
       )
 
@@ -132,62 +149,8 @@ export function useActivityFeed(memberIds?: Scope) {
 }
 
 // ── Tips ───────────────────────────────────────────────────────
-
-export interface Tip {
-  id: string
-  userId: string
-  userName: string | null
-  spotId: string | null
-  spotName: string | null
-  comment: string
-  quickTags: string[]
-  createdAt: string
-}
-
-interface RawTip {
-  id: string
-  user_id: string
-  spot_id: string | null
-  comment: string | null
-  quick_tags: string[] | null
-  created_at: string
-  profile: { display_name: string | null } | null
-  spot: { name: string | null } | null
-}
-
-export function useTips(memberIds?: Scope) {
-  return useQuery<Tip[]>({
-    queryKey: ['community', 'tips', scopeToken(memberIds)],
-    queryFn: async () => {
-      if (memberIds && memberIds.length === 0) return []
-
-      let q = supabase
-        .from('reviews')
-        .select(
-          'id, user_id, spot_id, comment, quick_tags, created_at, profile:profiles(display_name), spot:spots(name)',
-        )
-        .not('comment', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(10)
-      if (memberIds) q = q.in('user_id', memberIds)
-
-      const { data, error } = await q
-      if (error) throw error
-      return ((data as unknown as RawTip[]) ?? [])
-        .filter((r) => (r.comment ?? '').trim().length > 0)
-        .map((r) => ({
-          id: r.id,
-          userId: r.user_id,
-          userName: r.profile?.display_name ?? null,
-          spotId: r.spot_id,
-          spotName: r.spot?.name ?? null,
-          comment: r.comment ?? '',
-          quickTags: r.quick_tags ?? [],
-          createdAt: r.created_at,
-        }))
-    },
-  })
-}
+// First-class tips + the review-derived source now live in `useTips.ts`.
+// `tipTagLabel` stays here because it derives a label from review quick tags.
 
 /** Derive a short tag label ("WIFI TIP", "FOOD TIP", …) from quick tags. */
 export function tipTagLabel(quickTags: string[]): string {

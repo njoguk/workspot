@@ -18,19 +18,27 @@ import {
 } from '@/hooks/useGroups'
 import {
   useActivityFeed,
-  useTips,
   usePeople,
-  tipTagLabel,
   type FeedItem,
-  type Tip,
   type Person,
 } from '@/hooks/useCommunity'
+import {
+  useGroupTips,
+  useReviewTips,
+  tipAccentVar,
+  type TipCard,
+} from '@/hooks/useTips'
+import { useUserBadges } from '@/hooks/useUserBadges'
 import { CommentPanel } from '@/components/community/CommentPanel'
 import { CreateGroupSheet } from '@/components/community/CreateGroupSheet'
+import { AddTipSheet } from '@/components/tips/AddTipSheet'
 import { Avatar } from '@/components/ui/Avatar'
+import { BadgeTag } from '@/components/ui/BadgeTag'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { spotTypeLabel } from '@/lib/spot-format'
 import { timeAgo } from '@/lib/time'
 import { cn } from '@/lib/utils'
+import type { SignatureBadge } from '@/lib/badges'
 import type { ProfileRole } from '@/types'
 
 type Tab = 'activity' | 'tips' | 'people'
@@ -46,14 +54,6 @@ const ROLE_LABEL: Record<ProfileRole, string> = {
   remote_employee: 'Remote',
   founder: 'Founder',
   nomad: 'Nomad',
-}
-
-const TIP_ACCENT: Record<string, string> = {
-  'WIFI TIP': 'var(--color-info)',
-  'FOOD TIP': 'var(--color-secondary)',
-  'QUIET TIP': 'var(--color-success)',
-  'VIBE TIP': 'var(--color-primary)',
-  TIP: 'var(--color-primary)',
 }
 
 const KIND_LABEL: Record<Group['kind'], string> = {
@@ -210,7 +210,7 @@ export default function CommunityPage() {
         ) : (
           <>
             {tab === 'activity' && <ActivityTab memberIds={memberIds} />}
-            {tab === 'tips' && <TipsTab memberIds={memberIds} />}
+            {tab === 'tips' && <TipsTab group={activeGroup} memberIds={memberIds} />}
             {tab === 'people' && <PeopleTab memberIds={memberIds} />}
           </>
         )}
@@ -303,6 +303,7 @@ function ActivityTab({ memberIds }: { memberIds: string[] | null }) {
   const reviewReactions = useReactions('review', reviewIds, 'like')
   const { data: checkinCounts } = useCommentCounts('checkin', checkinIds)
   const { data: reviewCounts } = useCommentCounts('review', reviewIds)
+  const { data: badges } = useUserBadges(items.map((i) => i.userId))
 
   if (isLoading) return <ListSkeleton />
   if (isError) return <ErrorState label="Couldn’t load the activity feed." />
@@ -324,6 +325,7 @@ function ActivityTab({ memberIds }: { memberIds: string[] | null }) {
           <FeedRow
             key={item.id}
             item={item}
+            badge={badges?.[item.userId]?.[0]}
             reaction={reactions.stateFor(item.rawId)}
             onReact={() => reactions.toggle(item.rawId)}
             commentCount={counts?.[item.rawId] ?? 0}
@@ -336,11 +338,13 @@ function ActivityTab({ memberIds }: { memberIds: string[] | null }) {
 
 function FeedRow({
   item,
+  badge,
   reaction,
   onReact,
   commentCount,
 }: {
   item: FeedItem
+  badge?: SignatureBadge
   reaction: ReactionState
   onReact: () => void
   commentCount: number
@@ -368,7 +372,8 @@ function FeedRow({
         <Avatar name={item.userName} seed={item.userId} size={40} />
         <div className="min-w-0 flex-1">
           <p className="font-sans text-sm text-text">
-            <span className="font-semibold">{item.userName ?? 'A member'}</span>{' '}
+            <span className="font-semibold">{item.userName ?? 'A member'}</span>
+            {badge && <BadgeTag badge={badge} className="ml-1.5 align-middle" />}{' '}
             <span className="text-muted">{item.action}</span>{' '}
             {item.spotId && item.spotName && (
               <Link
@@ -380,8 +385,33 @@ function FeedRow({
             )}
           </p>
           <p className="mt-0.5 font-mono text-[11px] text-light">
-            {timeAgo(item.createdAt)}
+            {[
+              timeAgo(item.createdAt),
+              item.spotNeighbourhood,
+              item.spotType ? spotTypeLabel(item.spotType) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
+
+          {item.note && (
+            <p className="mt-2 border-l-2 border-border-strong pl-3 font-sans text-sm italic leading-relaxed text-muted">
+              &ldquo;{item.note}&rdquo;
+            </p>
+          )}
+
+          {item.quickTags.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {item.quickTags.slice(0, 4).map((t) => (
+                <li
+                  key={t}
+                  className="rounded-pill bg-surface-alt px-2 py-0.5 font-sans text-[11px] text-muted"
+                >
+                  {t}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="mt-3 flex items-center gap-4">
             <button
@@ -427,52 +457,111 @@ function FeedRow({
 
 // ── Tips ───────────────────────────────────────────────────────
 
-function TipsTab({ memberIds }: { memberIds: string[] | null }) {
-  const { data, isLoading, isError } = useTips(memberIds)
+function TipsTab({
+  group,
+  memberIds,
+}: {
+  group: Group | undefined
+  memberIds: string[] | null
+}) {
+  const { isLoggedIn } = useAuth()
+  const groupTips = useGroupTips(group?.id)
+  const reviewTips = useReviewTips(memberIds)
+  const [addOpen, setAddOpen] = useState(false)
 
-  const tips = data ?? []
-  const tipIds = tips.map((t) => t.id)
-  const reactions = useReactions('review', tipIds, 'helpful')
-  const { data: commentCounts } = useCommentCounts('review', tipIds)
-
-  if (isLoading) return <ListSkeleton />
-  if (isError) return <ErrorState label="Couldn’t load tips." />
-  if (tips.length === 0)
-    return (
-      <EmptyState
-        title="No tips yet"
-        body="Reviews with a written note show up here as tips."
-      />
+  // Merge first-class group tips with review-derived tips, newest first.
+  const tips = useMemo(() => {
+    const merged = [...(groupTips.data ?? []), ...(reviewTips.data ?? [])]
+    return merged.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
+  }, [groupTips.data, reviewTips.data])
+
+  const firstClassIds = tips.filter((t) => t.targetType === 'tip').map((t) => t.id)
+  const reviewIds = tips.filter((t) => t.targetType === 'review').map((t) => t.id)
+  const tipReactions = useReactions('tip', firstClassIds, 'helpful')
+  const reviewReactions = useReactions('review', reviewIds, 'helpful')
+  const { data: tipCounts } = useCommentCounts('tip', firstClassIds)
+  const { data: reviewCounts } = useCommentCounts('review', reviewIds)
+  const { data: badges } = useUserBadges(tips.map((t) => t.userId))
+
+  const isLoading = groupTips.isLoading || reviewTips.isLoading
+  const isError = groupTips.isError || reviewTips.isError
 
   return (
-    <ul className="space-y-3">
-      {tips.map((tip) => (
-        <TipRow
-          key={tip.id}
-          tip={tip}
-          reaction={reactions.stateFor(tip.id)}
-          onReact={() => reactions.toggle(tip.id)}
-          commentCount={commentCounts?.[tip.id] ?? 0}
+    <div>
+      {isLoggedIn && group && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-pill border border-border-strong px-4 font-sans text-sm font-semibold text-text transition-colors duration-fast hover:border-primary hover:text-primary"
+          >
+            <Plus size={16} /> Add a tip
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <ListSkeleton />
+      ) : isError ? (
+        <ErrorState label="Couldn’t load tips." />
+      ) : tips.length === 0 ? (
+        <EmptyState
+          title="No tips yet"
+          body={
+            isLoggedIn
+              ? 'Be the first to add a tip for this group.'
+              : 'Tips shared in this group show up here.'
+          }
         />
-      ))}
-    </ul>
+      ) : (
+        <ul className="space-y-3">
+          {tips.map((tip) => {
+            const isFirstClass = tip.targetType === 'tip'
+            const reactions = isFirstClass ? tipReactions : reviewReactions
+            const counts = isFirstClass ? tipCounts : reviewCounts
+            return (
+              <TipRow
+                key={`${tip.targetType}-${tip.id}`}
+                tip={tip}
+                badge={badges?.[tip.userId]?.[0]}
+                reaction={reactions.stateFor(tip.id)}
+                onReact={() => reactions.toggle(tip.id)}
+                commentCount={counts?.[tip.id] ?? 0}
+              />
+            )
+          })}
+        </ul>
+      )}
+
+      {group && (
+        <AddTipSheet
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          groupId={group.id}
+          targetLabel={group.name}
+          onAdded={() => groupTips.refetch()}
+        />
+      )}
+    </div>
   )
 }
 
 function TipRow({
   tip,
+  badge,
   reaction,
   onReact,
   commentCount,
 }: {
-  tip: Tip
+  tip: TipCard
+  badge?: SignatureBadge
   reaction: ReactionState
   onReact: () => void
   commentCount: number
 }) {
-  const tag = tipTagLabel(tip.quickTags)
-  const accent = TIP_ACCENT[tag] ?? 'var(--color-primary)'
+  const accent = tipAccentVar(tip.tagLabel)
   const [commentsOpen, setCommentsOpen] = useState(false)
 
   return (
@@ -481,11 +570,12 @@ function TipRow({
       style={{ borderLeft: `4px solid ${accent}` }}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Avatar name={tip.userName} seed={tip.userId} size={32} />
-          <div>
-            <p className="font-sans text-sm font-semibold text-text">
-              {tip.userName ?? 'A member'}
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 font-sans text-sm font-semibold text-text">
+              <span className="truncate">{tip.userName ?? 'A member'}</span>
+              {badge && <BadgeTag badge={badge} />}
             </p>
             {tip.spotId && tip.spotName && (
               <Link
@@ -498,14 +588,14 @@ function TipRow({
           </div>
         </div>
         <span
-          className="rounded-pill px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide"
+          className="shrink-0 rounded-pill px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide"
           style={{ color: accent, background: `color-mix(in srgb, ${accent} 14%, transparent)` }}
         >
-          {tag}
+          {tip.tagLabel}
         </span>
       </div>
 
-      <p className="mt-3 font-sans text-sm leading-relaxed text-text">{tip.comment}</p>
+      <p className="mt-3 font-sans text-sm leading-relaxed text-text">{tip.body}</p>
 
       <div className="mt-3 flex items-center gap-4">
         <button
@@ -532,7 +622,7 @@ function TipRow({
         </button>
       </div>
 
-      {commentsOpen && <CommentPanel targetType="review" targetId={tip.id} />}
+      {commentsOpen && <CommentPanel targetType={tip.targetType} targetId={tip.id} />}
     </li>
   )
 }
@@ -541,6 +631,7 @@ function TipRow({
 
 function PeopleTab({ memberIds }: { memberIds: string[] | null }) {
   const { data, isLoading, isError } = usePeople(memberIds)
+  const { data: badges } = useUserBadges((data ?? []).map((p) => p.id))
 
   if (isLoading)
     return (
@@ -559,13 +650,13 @@ function PeopleTab({ memberIds }: { memberIds: string[] | null }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {data.map((person) => (
-        <PersonCard key={person.id} person={person} />
+        <PersonCard key={person.id} person={person} badge={badges?.[person.id]?.[0]} />
       ))}
     </div>
   )
 }
 
-function PersonCard({ person }: { person: Person }) {
+function PersonCard({ person, badge }: { person: Person; badge?: SignatureBadge }) {
   return (
     <div className="flex flex-col items-center rounded-lg border border-border bg-surface p-5 text-center">
       <Avatar name={person.display_name} seed={person.id} size={56} />
@@ -577,6 +668,7 @@ function PersonCard({ person }: { person: Person }) {
           {ROLE_LABEL[person.role]}
         </span>
       )}
+      {badge && <BadgeTag badge={badge} className="mt-2" />}
       <p className="mt-2 font-mono text-xs text-secondary">
         🔥 {person.check_in_streak} day{person.check_in_streak === 1 ? '' : 's'}
       </p>

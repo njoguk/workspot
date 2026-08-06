@@ -10,6 +10,8 @@ import { recordSpotVisit } from '@/lib/softGate'
 import { noiseLabel, wifiClass, spotTypeLabel } from '@/lib/spot-format'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
 import { ReviewFlow } from '@/components/review/ReviewFlow'
+import { SpotTips } from '@/components/spots/SpotTips'
+import { SpotReviews } from '@/components/spots/SpotReviews'
 import { CheckInConfirm } from '@/components/checkin/CheckInConfirm'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
@@ -235,6 +237,12 @@ export default function SpotDetailPage() {
             })}
           </ul>
         </div>
+
+        {/* 5. Tips about this spot */}
+        <SpotTips spotId={spot.id} spotName={spot.name} />
+
+        {/* 6. Reviews */}
+        <SpotReviews spotId={spot.id} />
 
         {/* Retrospective review path for a past visit */}
         {isLoggedIn && !isCheckedInHere && (

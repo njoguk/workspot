@@ -79,6 +79,56 @@ export function useSpotMetricAverage(spotId: string | undefined) {
   })
 }
 
+// ── Reviews list for a spot (display) ──────────────────────────
+
+export interface SpotReview {
+  id: string
+  userId: string
+  userName: string | null
+  overallScore: number | null
+  comment: string | null
+  quickTags: string[]
+  createdAt: string
+}
+
+interface RawSpotReview {
+  id: string
+  user_id: string
+  overall_score: number | string | null
+  comment: string | null
+  quick_tags: string[] | null
+  created_at: string
+  profile: { display_name: string | null } | null
+}
+
+/** Recent reviews for a spot, newest first, with the reviewer's name. */
+export function useSpotReviews(spotId: string | undefined, limit = 20) {
+  return useQuery<SpotReview[]>({
+    queryKey: ['review', 'spotList', spotId],
+    enabled: Boolean(spotId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(
+          'id, user_id, overall_score, comment, quick_tags, created_at, profile:profiles(display_name)',
+        )
+        .eq('spot_id', spotId!)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (error) throw error
+      return ((data as unknown as RawSpotReview[]) ?? []).map((r) => ({
+        id: r.id,
+        userId: r.user_id,
+        userName: r.profile?.display_name ?? null,
+        overallScore: r.overall_score != null ? Number(r.overall_score) : null,
+        comment: r.comment,
+        quickTags: r.quick_tags ?? [],
+        createdAt: r.created_at,
+      }))
+    },
+  })
+}
+
 // ── Overall-score calculation (docs/SCHEMA.md) ─────────────────
 
 /**
