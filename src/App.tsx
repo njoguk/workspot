@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Skeleton } from '@/components/ui/Skeleton'
 import ExplorePage from '@/pages/ExplorePage'
 import SpotDetailPage from '@/pages/SpotDetailPage'
+import HubDetailPage from '@/pages/HubDetailPage'
 import CheckInPage from '@/pages/CheckInPage'
 import CommunityPage from '@/pages/CommunityPage'
 import EventsPage from '@/pages/EventsPage'
@@ -29,6 +30,7 @@ export default function App() {
       <Route element={<RootLayout />}>
         <Route path="/" element={<ExplorePage />} />
         <Route path="/spot/:id" element={<SpotDetailPage />} />
+        <Route path="/hub/:id" element={<HubDetailPage />} />
         <Route path="/check-in" element={<CheckInPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/events" element={<EventsPage />} />

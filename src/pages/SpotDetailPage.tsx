@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, Share2 } from 'lucide-react'
 import { useSpot } from '@/hooks/useSpots'
+import { useSpotHub } from '@/hooks/useHubs'
 import { useActiveCheckin } from '@/hooks/useCheckins'
 import { useIsWorkPassMember } from '@/hooks/useWorkPass'
 import { useAuth } from '@/contexts/AuthContext'
@@ -40,6 +41,7 @@ export default function SpotDetailPage() {
   const { isLoggedIn } = useAuth()
   const { showToast } = useToast()
   const { data: spot, isLoading, isError } = useSpot(id)
+  const { data: spotHub } = useSpotHub(id)
   const { data: activeCheckin } = useActiveCheckin()
   const { isActive: isMember } = useIsWorkPassMember()
 
@@ -192,6 +194,16 @@ export default function SpotDetailPage() {
 
       {/* ── Body ── */}
       <div className="space-y-8 py-8">
+        {/* Part of a hub */}
+        {spotHub && (
+          <Link
+            to={`/hub/${spotHub.id}`}
+            className="inline-flex items-center gap-1.5 rounded-pill bg-surface-alt px-3 py-1.5 font-sans text-[13px] font-medium text-text transition-colors duration-fast hover:text-primary"
+          >
+            🏢 Part of {spotHub.name}
+          </Link>
+        )}
+
         {/* 1. Description */}
         <p className="max-w-2xl text-[15px] leading-[1.8] text-text">
           {spot.description}

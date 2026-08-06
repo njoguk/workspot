@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { useUpsertVenue, type PartnerVenue, type VenueFormInput } from '@/hooks/useVenue'
+import { useHubs, useCreateHub, useSpotHub } from '@/hooks/useHubs'
 import { uploadSpotImage } from '@/lib/storage'
 import { LocationPicker, type PickedLocation } from '@/components/partner/LocationPicker'
 import { SLOT_CHOICES, SPOT_TYPE_OPTIONS } from '@/lib/partner'
@@ -84,10 +85,17 @@ export function VenueListingEditor({
 }) {
   const { showToast } = useToast()
   const upsert = useUpsertVenue()
+  const { data: hubs } = useHubs()
+  const createHub = useCreateHub()
+  const { data: currentHub } = useSpotHub(venue?.spotId)
   const [form, setForm] = useState<FormState>(() => initialState(venue))
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [stepIdx, setStepIdx] = useState(0)
+  // Hub attach: '' = leave unchanged, 'none' = detach, '__new__' = create, else a hub id.
+  const [hubSel, setHubSel] = useState('')
+  const [newHubName, setNewHubName] = useState('')
+  const [newHubBrand, setNewHubBrand] = useState('')
 
   const step = STEPS[stepIdx].id
   const isLast = stepIdx === STEPS.length - 1
@@ -160,8 +168,24 @@ export function VenueListingEditor({
       setStepIdx(0)
       return
     }
-    const input: VenueFormInput = { ...form, spotId: venue?.spotId ?? null }
     try {
+      // Resolve the hub attach (create one first if needed).
+      let hubId: string | null | undefined
+      if (hubSel === '__new__') {
+        if (newHubName.trim()) {
+          hubId = await createHub.mutateAsync({
+            name: newHubName,
+            brand: newHubBrand,
+            neighbourhood: form.neighbourhood,
+          })
+        }
+      } else if (hubSel === 'none') {
+        hubId = null
+      } else if (hubSel) {
+        hubId = hubSel
+      }
+
+      const input: VenueFormInput = { ...form, hubId, spotId: venue?.spotId ?? null }
       const spotId = await upsert.mutateAsync(input)
       showToast(venue ? 'Listing updated' : 'Listing created', { icon: '✅' })
       onSaved?.(spotId)
@@ -245,6 +269,45 @@ export function VenueListingEditor({
                 placeholder="What makes your space great for focused work?"
                 className="w-full rounded-md border border-border bg-bg px-3 py-2.5 font-sans text-sm text-text outline-none focus:border-primary"
               />
+            </Field>
+            <Field label="Hub (optional)">
+              {currentHub && hubSel === '' && (
+                <p className="mb-1.5 font-sans text-[12px] text-muted">
+                  Currently at <span className="font-semibold text-text">{currentHub.name}</span>
+                </p>
+              )}
+              <select
+                value={hubSel}
+                onChange={(e) => setHubSel(e.target.value)}
+                className="h-11 w-full rounded-md border border-border bg-bg px-3 font-sans text-sm text-text outline-none focus:border-primary"
+              >
+                <option value="">{currentHub ? 'Keep current hub' : 'Not part of a hub'}</option>
+                {currentHub && <option value="none">Remove from hub</option>}
+                {(hubs ?? []).map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                    {h.brand ? ` · ${h.brand}` : ''}
+                  </option>
+                ))}
+                <option value="__new__">＋ Create a new hub…</option>
+              </select>
+              {hubSel === '__new__' && (
+                <div className="mt-3 space-y-2">
+                  <TextInput
+                    value={newHubName}
+                    onChange={setNewHubName}
+                    placeholder="Hub name (e.g. Sarit Centre)"
+                  />
+                  <TextInput
+                    value={newHubBrand}
+                    onChange={setNewHubBrand}
+                    placeholder="Brand (optional, e.g. Java House)"
+                  />
+                </div>
+              )}
+              <p className="mt-1.5 font-mono text-[10px] text-light">
+                Group this spot with others in the same building or brand.
+              </p>
             </Field>
           </>
         )}

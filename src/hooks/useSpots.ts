@@ -119,6 +119,31 @@ export function useFeaturedSpots() {
   })
 }
 
+/** Postgres "undefined column/table" — the hubs migration hasn't been run yet. */
+function isMissingHubSchema(error: { code?: string } | null): boolean {
+  return error?.code === '42703' || error?.code === '42P01'
+}
+
+/** Spots that belong to a given hub. Empty until the hubs migration is applied. */
+export function useSpotsByHub(hubId: string | undefined) {
+  return useQuery<Spot[]>({
+    queryKey: ['spots', 'hub', hubId],
+    enabled: Boolean(hubId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('spots')
+        .select(SPOT_COLUMNS)
+        .eq('hub_id', hubId!)
+        .order('work_score', { ascending: false })
+      if (error) {
+        if (isMissingHubSchema(error)) return []
+        throw error
+      }
+      return (data as SpotRow[]).map(mapRow)
+    },
+  })
+}
+
 /**
  * Spots for the homepage hero carousel — prime "featured" placement, then
  * "premium", then highest WorkScore as a graceful fallback so the carousel is

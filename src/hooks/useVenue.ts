@@ -169,6 +169,8 @@ export interface VenueFormInput {
   latitude?: number | null
   longitude?: number | null
   coverImageUrl?: string | null
+  /** Hub attach: a hub id, null to detach, or undefined to leave unchanged. */
+  hubId?: string | null
   description: string
   wifiMbps: number
   priceEntry: string
@@ -212,6 +214,9 @@ export function useUpsertVenue() {
           noise_level: input.noiseLevel,
           sockets: input.sockets,
         },
+        // Only touch hub_id when explicitly set, so saves don't depend on the
+        // hubs migration until a partner actually uses hubs.
+        ...(input.hubId !== undefined ? { hub_id: input.hubId } : {}),
       }
 
       let spotId = input.spotId ?? null
