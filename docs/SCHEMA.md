@@ -37,23 +37,33 @@ CREATE TABLE profiles (
   created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Auto-create profile on signup
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+-- Auto-create profile on signup.
+-- IMPORTANT: SECURITY DEFINER functions MUST schema-qualify tables AND set an
+-- explicit search_path, or the insert fails to resolve `profiles` and rolls
+-- back the whole auth.users insert (GoTrue then returns a 500 / "{}" on the
+-- client). See docs/fix-signup-trigger.sql — that file is the source of truth.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO profiles (id, display_name, handle)
+  INSERT INTO public.profiles (id, display_name, handle, account_type)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    lower(regexp_replace(split_part(NEW.email, '@', 1), '[^a-z0-9]', '_', 'g'))
-  );
+    lower(regexp_replace(split_part(NEW.email, '@', 1), '[^a-z0-9]', '_', 'g')),
+    COALESCE(NEW.raw_user_meta_data->>'account_type', 'member')
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
 
 ### spots

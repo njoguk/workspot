@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import type { AuthError } from '@supabase/supabase-js'
 import { PLATFORM } from '@/config/platform'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
@@ -8,6 +9,20 @@ import { cn } from '@/lib/utils'
 type Tab = 'signup' | 'login'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Turn a Supabase AuthError into a user-facing message. Server-side failures
+ * (e.g. a signup trigger raising) come back as a 5xx with an empty/`{}` body,
+ * which must never be shown verbatim.
+ */
+function friendlyAuthError(error: AuthError): string {
+  const raw = error.message?.trim() ?? ''
+  const status = error.status ?? 0
+  if (status >= 500 || raw === '' || raw === '{}') {
+    return 'Something went wrong on our end. Please try again in a moment.'
+  }
+  return raw
+}
 
 interface LocationState {
   from?: string
@@ -55,7 +70,7 @@ export default function AuthPage() {
     const { error } = await signUp({ firstName, lastName, email, password, accountType })
     setSubmitting(false)
     if (error) {
-      setFormError(error.message)
+      setFormError(friendlyAuthError(error))
       return
     }
     navigate(accountType === 'partner' ? '/partner/dashboard' : '/onboarding')
@@ -74,7 +89,7 @@ export default function AuthPage() {
     const { error } = await signIn(email, password)
     setSubmitting(false)
     if (error) {
-      setFormError(error.message)
+      setFormError(friendlyAuthError(error))
       return
     }
     navigate(from)
@@ -90,7 +105,7 @@ export default function AuthPage() {
     const { error } = await resetPassword(email)
     setSubmitting(false)
     if (error) {
-      setFormError(error.message)
+      setFormError(friendlyAuthError(error))
       return
     }
     setResetSent(true)
@@ -99,7 +114,7 @@ export default function AuthPage() {
   async function handleGoogle() {
     setFormError(null)
     const { error } = await signInWithGoogle()
-    if (error) setFormError(error.message)
+    if (error) setFormError(friendlyAuthError(error))
   }
 
   return (
