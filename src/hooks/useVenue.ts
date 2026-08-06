@@ -25,6 +25,9 @@ export interface PartnerVenue {
   coverGradient: string | null
   coverImageUrl: string | null
   description: string
+  address: string
+  latitude: number | null
+  longitude: number | null
   mapsUrl: string
   priceEntry: string
   wifiMbps: number
@@ -62,6 +65,9 @@ interface VenueSettingsRow {
     cover_gradient: string | null
     cover_image_url: string | null
     description: string | null
+    address: string | null
+    latitude: number | string | null
+    longitude: number | string | null
     maps_url: string | null
     price_entry: string | null
     is_premium_listing: boolean | null
@@ -71,7 +77,7 @@ interface VenueSettingsRow {
 }
 
 const VENUE_SELECT =
-  'id, spot_id, workpass_discount_pct, max_seats_per_slot, slot_duration_hours, advance_booking_days, available_slots, payout_mpesa_number, total_earned_kes, pending_payout_kes, created_at, spot:spots(id, name, neighbourhood, type, work_score, review_count, cover_gradient, cover_image_url, description, maps_url, price_entry, is_premium_listing, is_featured_listing, type_attributes)'
+  'id, spot_id, workpass_discount_pct, max_seats_per_slot, slot_duration_hours, advance_booking_days, available_slots, payout_mpesa_number, total_earned_kes, pending_payout_kes, created_at, spot:spots(id, name, neighbourhood, type, work_score, review_count, cover_gradient, cover_image_url, description, address, latitude, longitude, maps_url, price_entry, is_premium_listing, is_featured_listing, type_attributes)'
 
 function mapVenue(row: VenueSettingsRow): PartnerVenue | null {
   const spot = row.spot
@@ -89,6 +95,9 @@ function mapVenue(row: VenueSettingsRow): PartnerVenue | null {
     coverGradient: spot.cover_gradient,
     coverImageUrl: spot.cover_image_url,
     description: spot.description ?? '',
+    address: spot.address ?? '',
+    latitude: spot.latitude != null ? Number(spot.latitude) : null,
+    longitude: spot.longitude != null ? Number(spot.longitude) : null,
     mapsUrl: spot.maps_url ?? '',
     priceEntry: spot.price_entry ?? '',
     wifiMbps: Number(attrs.wifi_mbps ?? 0),
@@ -156,6 +165,9 @@ export interface VenueFormInput {
   neighbourhood: string
   type: SpotType
   mapsUrl: string
+  address?: string
+  latitude?: number | null
+  longitude?: number | null
   coverImageUrl?: string | null
   description: string
   wifiMbps: number
@@ -186,6 +198,9 @@ export function useUpsertVenue() {
         neighbourhood: input.neighbourhood,
         type: input.type,
         maps_url: input.mapsUrl || null,
+        address: input.address || null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
         cover_image_url: input.coverImageUrl ?? null,
         description: input.description || null,
         price_entry: input.priceEntry || null,
