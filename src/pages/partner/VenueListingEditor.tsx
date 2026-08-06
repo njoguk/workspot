@@ -63,7 +63,7 @@ export function VenueListingEditor({
   onSaved,
 }: {
   venue: PartnerVenue | null
-  onSaved?: () => void
+  onSaved?: (spotId: string) => void
 }) {
   const { showToast } = useToast()
   const upsert = useUpsertVenue()
@@ -106,9 +106,9 @@ export function VenueListingEditor({
     setError(null)
     const input: VenueFormInput = { ...form, spotId: venue?.spotId ?? null }
     try {
-      await upsert.mutateAsync(input)
+      const spotId = await upsert.mutateAsync(input)
       showToast(venue ? 'Listing updated' : 'Listing created', { icon: '✅' })
-      onSaved?.()
+      onSaved?.(spotId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save — please try again.')
     }

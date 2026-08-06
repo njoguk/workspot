@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { BookingChip, PartnerData } from '@/lib/partner'
-import { Panel, SectionHeading, StatusChip } from '@/components/partner/partner-ui'
+import { BookingsTable, SectionHeading } from '@/components/partner/partner-ui'
 import { cn } from '@/lib/utils'
 
 /**
@@ -52,43 +52,10 @@ export function VenueBookings({ data }: { data: PartnerData }) {
         })}
       </div>
 
-      <Panel className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border">
-                {['Guest', 'Date & time', 'Slot', 'Payment', 'Status'].map((h) => (
-                  <th key={h} className="px-4 py-3 font-mono text-[10px] uppercase tracking-wide text-light">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((b) => (
-                <tr key={b.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-sans text-sm font-medium text-text">{b.guest}</td>
-                  <td className="px-4 py-3 font-mono text-[12px] text-muted">
-                    {b.date} · {b.time}
-                  </td>
-                  <td className="px-4 py-3 font-sans text-[13px] text-text">{b.slot}</td>
-                  <td className="px-4 py-3 font-sans text-[13px] text-muted">{b.payment}</td>
-                  <td className="px-4 py-3">
-                    <StatusChip kind={b.status} />
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center font-sans text-sm text-muted">
-                    No {filter === 'all' ? '' : filter} bookings to show.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+      <BookingsTable
+        rows={rows}
+        emptyLabel={`No ${filter === 'all' ? '' : filter} bookings to show.`}
+      />
     </div>
   )
 }

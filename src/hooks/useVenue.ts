@@ -126,6 +126,27 @@ export function useMyVenue() {
   })
 }
 
+/** Every venue owned by the signed-in user (a partner can list multiple spots). */
+export function useMyVenues() {
+  const { user } = useAuth()
+  const userId = user?.id
+  return useQuery<PartnerVenue[]>({
+    queryKey: ['venue', 'mine-all', userId],
+    enabled: Boolean(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('venue_settings')
+        .select(VENUE_SELECT)
+        .eq('owner_user_id', userId!)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return ((data as unknown as VenueSettingsRow[]) ?? [])
+        .map(mapVenue)
+        .filter((v): v is PartnerVenue => v !== null)
+    },
+  })
+}
+
 // ── Create / update a listing (STEP 10) ────────────────────────
 
 export interface VenueFormInput {

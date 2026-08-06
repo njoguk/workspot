@@ -4,7 +4,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from 'rechar
 import type { PartnerData } from '@/lib/partner'
 import { formatKES } from '@/lib/booking'
 import type { PartnerVenue } from '@/hooks/useVenue'
-import { Panel, SectionHeading, StatusChip } from '@/components/partner/partner-ui'
+import { BookingsTable, Panel, SectionHeading } from '@/components/partner/partner-ui'
 
 /**
  * Dashboard overview (STEP 9): a 4-KPI strip with count-up animation, a daily
@@ -65,44 +65,12 @@ export function VenueOverview({ venue, data }: { venue: PartnerVenue; data: Part
         </div>
       </Panel>
 
-      {/* Upcoming bookings table */}
+      {/* Upcoming bookings */}
       <div className="mt-6">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-light">
           Upcoming bookings
         </p>
-        <Panel className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-border">
-                  {['Guest', 'Date & time', 'Slot', 'Payment', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 font-mono text-[10px] uppercase tracking-wide text-light"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {upcoming.map((b) => (
-                  <tr key={b.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 font-sans text-sm font-medium text-text">{b.guest}</td>
-                    <td className="px-4 py-3 font-mono text-[12px] text-muted">
-                      {b.date} · {b.time}
-                    </td>
-                    <td className="px-4 py-3 font-sans text-[13px] text-text">{b.slot}</td>
-                    <td className="px-4 py-3 font-sans text-[13px] text-muted">{b.payment}</td>
-                    <td className="px-4 py-3">
-                      <StatusChip kind={b.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
+        <BookingsTable rows={upcoming} emptyLabel="No upcoming bookings yet." />
       </div>
     </div>
   )
