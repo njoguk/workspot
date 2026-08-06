@@ -19,7 +19,12 @@ import { supabase } from '@/lib/supabase'
 /** Public key (pk_test_… / pk_live_…). Safe to expose in the browser. */
 export const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY
 
-export type PaymentType = 'booking' | 'subscription_monthly' | 'subscription_annual'
+export type PaymentType =
+  | 'booking'
+  | 'subscription_monthly'
+  | 'subscription_annual'
+  | 'partner_premium'
+  | 'partner_featured'
 
 export interface InitPaymentInput {
   /** Amount in whole KES — the Edge Function converts to the smallest unit. */
@@ -28,6 +33,8 @@ export interface InitPaymentInput {
   paymentType: PaymentType
   /** Set for `payment_type: 'booking'`; null for subscriptions. */
   bookingId?: string | null
+  /** Set for partner tier upgrades so the webhook can flip the right spot's tier. */
+  spotId?: string | null
   /** M-Pesa number in "07XXXXXXXX" form. Optional — the popup can collect it. */
   phoneNumber?: string | null
   /** Used by the webhook to activate the right member on subscription payments. */
@@ -53,6 +60,7 @@ export async function initializePayment(input: InitPaymentInput): Promise<InitPa
         email: input.email,
         payment_type: input.paymentType,
         booking_id: input.bookingId ?? null,
+        spot_id: input.spotId ?? null,
         phone_number: input.phoneNumber ?? null,
         user_id: input.userId ?? null,
       },

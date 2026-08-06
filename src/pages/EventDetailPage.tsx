@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Share2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { shareOrCopy } from '@/lib/share'
 import {
   useEvent,
   useEventRsvps,
@@ -75,6 +76,15 @@ export default function EventDetailPage() {
   const hasRsvped = Boolean(user && rsvps?.some((r) => r.user_id === user.id))
   const isPast = event.event_date < todayStr()
 
+  async function handleShare() {
+    const res = await shareOrCopy({
+      title: event!.title,
+      text: `Join me at ${event!.title} on RemoSpot — ${formatEventDate(event!.event_date)}.`,
+    })
+    if (res === 'copied') showToast('Link copied — invite someone!', { icon: '🔗' })
+    else if (res === 'failed') showToast('Could not share right now', { icon: '⚠️' })
+  }
+
   async function handleRsvp() {
     if (!id || isPast) return
     try {
@@ -98,14 +108,24 @@ export default function EventDetailPage() {
         }}
       >
         <div className="mx-auto max-w-content">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            aria-label="Go back"
-            className="grid h-10 w-10 place-items-center rounded-full bg-surface text-dark shadow-sm"
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <div className="flex items-start justify-between">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
+              className="grid h-10 w-10 place-items-center rounded-full bg-surface text-dark shadow-sm"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label={`Share ${event.title}`}
+              className="grid h-10 w-10 place-items-center rounded-full bg-surface text-dark shadow-sm transition-opacity duration-fast hover:opacity-90"
+            >
+              <Share2 size={18} />
+            </button>
+          </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <HeroBadge>{formatEventDate(event.event_date)}</HeroBadge>

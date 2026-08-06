@@ -21,6 +21,8 @@ interface SignUpParams {
   lastName: string
   email: string
   password: string
+  /** 'member' (find spaces) or 'partner' (list a space). */
+  accountType?: 'member' | 'partner'
 }
 
 interface AuthContextValue {
@@ -142,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName,
       email,
       password,
+      accountType = 'member',
     }: SignUpParams): Promise<AuthActionResult> => {
       const fullName = `${firstName} ${lastName}`.trim()
       const { error } = await supabase.auth.signUp({
@@ -149,11 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           // Consumed by the handle_new_user() trigger (docs/SCHEMA.md) to
-          // populate profiles.display_name.
+          // populate profiles.display_name + account_type.
           data: {
             full_name: fullName,
             first_name: firstName,
             last_name: lastName,
+            account_type: accountType,
           },
         },
       })

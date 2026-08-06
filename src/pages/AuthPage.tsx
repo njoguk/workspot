@@ -20,6 +20,7 @@ export default function AuthPage() {
 
   const [tab, setTab] = useState<Tab>('signup')
 
+  const [accountType, setAccountType] = useState<'member' | 'partner'>('member')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -51,13 +52,13 @@ export default function AuthPage() {
     if (Object.keys(next).length > 0) return
 
     setSubmitting(true)
-    const { error } = await signUp({ firstName, lastName, email, password })
+    const { error } = await signUp({ firstName, lastName, email, password, accountType })
     setSubmitting(false)
     if (error) {
       setFormError(error.message)
       return
     }
-    navigate('/onboarding')
+    navigate(accountType === 'partner' ? '/partner/dashboard' : '/onboarding')
   }
 
   async function handleLogIn(e: FormEvent) {
@@ -166,6 +167,39 @@ export default function AuthPage() {
 
         {tab === 'signup' ? (
           <form onSubmit={handleSignUp} noValidate className="space-y-4">
+            {/* Account type */}
+            <div>
+              <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-muted">
+                I want to
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { key: 'member', label: 'Find spaces', hint: 'Discover & book' },
+                    { key: 'partner', label: 'List my space', hint: 'Become a partner' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setAccountType(opt.key)}
+                    aria-pressed={accountType === opt.key}
+                    className={cn(
+                      'flex min-h-[44px] flex-col items-start rounded-md border px-3 py-2 text-left transition-colors duration-fast',
+                      accountType === opt.key
+                        ? 'border-primary bg-surface-alt'
+                        : 'border-border hover:border-border-strong',
+                    )}
+                  >
+                    <span className="font-sans text-sm font-semibold text-text">{opt.label}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-light">
+                      {opt.hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Field
                 id="firstName"

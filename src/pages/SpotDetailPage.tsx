@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Share2 } from 'lucide-react'
 import { useSpot } from '@/hooks/useSpots'
 import { useActiveCheckin } from '@/hooks/useCheckins'
 import { useIsWorkPassMember } from '@/hooks/useWorkPass'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { recordSpotVisit } from '@/lib/softGate'
+import { shareOrCopy } from '@/lib/share'
 import { noiseLabel, wifiClass, spotTypeLabel } from '@/lib/spot-format'
 import { QualityScoreBadge } from '@/components/ui/QualityScoreBadge'
 import { ReviewFlow } from '@/components/review/ReviewFlow'
@@ -36,6 +38,7 @@ export default function SpotDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
+  const { showToast } = useToast()
   const { data: spot, isLoading, isError } = useSpot(id)
   const { data: activeCheckin } = useActiveCheckin()
   const { isActive: isMember } = useIsWorkPassMember()
@@ -118,6 +121,15 @@ export default function SpotDetailPage() {
 
   const isCheckedInHere = Boolean(activeCheckin && activeCheckin.spot_id === spot.id)
 
+  async function handleShare() {
+    const res = await shareOrCopy({
+      title: spot!.name,
+      text: `Come work from ${spot!.name} in ${spot!.neighbourhood} on RemoSpot.`,
+    })
+    if (res === 'copied') showToast('Link copied — invite someone!', { icon: '🔗' })
+    else if (res === 'failed') showToast('Could not share right now', { icon: '⚠️' })
+  }
+
   return (
     <div className="pb-28 md:pb-24">
       {/* ── Hero ── */}
@@ -150,7 +162,17 @@ export default function SpotDetailPage() {
             >
               <ArrowLeft size={18} />
             </button>
-            <QualityScoreBadge score={spot.workScore} label={spot.scoreLabel} size="lg" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label={`Share ${spot.name}`}
+                className="grid h-10 w-10 place-items-center rounded-full bg-surface text-dark shadow-sm transition-opacity duration-fast hover:opacity-90"
+              >
+                <Share2 size={18} />
+              </button>
+              <QualityScoreBadge score={spot.workScore} label={spot.scoreLabel} size="lg" />
+            </div>
           </div>
           <div>
             <h1 className="font-display text-[30px] font-bold leading-tight text-inverse">

@@ -1,17 +1,28 @@
+import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
+import { initializePayment, openPaystackPopup } from '@/lib/paystack'
 import { TIER_LABEL, type VenueTier } from '@/lib/partner'
 import { Panel, SectionHeading } from '@/components/partner/partner-ui'
 import { cn } from '@/lib/utils'
 import type { PartnerVenue as Venue } from '@/hooks/useVenue'
 
 /**
- * Upgrade Plan. Presents the paid tiers above the current one. Venue-tier
- * billing runs through a Paystack partner subscription in production; here the
- * CTA opens a conversation (no client-side charge).
+ * Upgrade Plan. Paid tiers run through the same Paystack flow as bookings and
+ * WorkPass: initialize a transaction (Edge Function) → inline popup → the
+ * paystack-webhook flips the spot's tier server-side after verifying payment.
+ * (The Edge Function + webhook must handle the `partner_*` payment types — see
+ * docs/PAYSTACK_DEPLOY.md; until deployed, starting a payment surfaces an error.)
  */
 
+type PaidTier = Exclude<VenueTier, 'free'>
+
+const TIER_PRICE: Record<PaidTier, number> = { premium: 3500, featured: 8000 }
+
 interface UpgradeTier {
-  id: Exclude<VenueTier, 'free'>
+  id: PaidTier
   price: string
   perks: string[]
 }
@@ -43,7 +54,51 @@ const UPGRADES: UpgradeTier[] = [
 const RANK: Record<VenueTier, number> = { free: 0, premium: 1, featured: 2 }
 
 export function VenueUpgrade({ venue }: { venue: Venue | null }) {
+  const { user } = useAuth()
+  const { showToast } = useToast()
+  const queryClient = useQueryClient()
+  const [busy, setBusy] = useState<PaidTier | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
   const current: VenueTier = venue?.tier ?? 'free'
+
+  async function handleUpgrade(tier: PaidTier) {
+    if (!venue) {
+      setError('Create your listing before upgrading.')
+      return
+    }
+    if (!user?.email) {
+      setError('You need to be signed in to upgrade.')
+      return
+    }
+    setError(null)
+    setBusy(tier)
+    try {
+      const { access_code } = await initializePayment({
+        amountKes: TIER_PRICE[tier],
+        email: user.email,
+        paymentType: tier === 'premium' ? 'partner_premium' : 'partner_featured',
+        spotId: venue.spotId,
+        userId: user.id,
+      })
+      openPaystackPopup(access_code, {
+        onSuccess: () => {
+          setBusy(null)
+          showToast('Payment received — your plan updates shortly.', { icon: '🎉' })
+          queryClient.invalidateQueries({ queryKey: ['venue'] })
+          queryClient.invalidateQueries({ queryKey: ['spots'] })
+        },
+        onCancel: () => setBusy(null),
+        onError: (message) => {
+          setError(message)
+          setBusy(null)
+        },
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the payment.')
+      setBusy(null)
+    }
+  }
 
   return (
     <div>
@@ -53,6 +108,16 @@ export function VenueUpgrade({ venue }: { venue: Venue | null }) {
         <p className="font-mono text-[10px] uppercase tracking-wide text-light">Current plan</p>
         <p className="mt-1 font-display text-xl font-bold text-text">{TIER_LABEL[current]}</p>
       </Panel>
+
+      {error && (
+        <p
+          role="alert"
+          className="mb-4 rounded-md p-3 font-sans text-[13px] text-primary"
+          style={{ background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)' }}
+        >
+          {error}
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {UPGRADES.map((tier) => {
@@ -104,15 +169,17 @@ export function VenueUpgrade({ venue }: { venue: Venue | null }) {
                   Your current plan
                 </span>
               ) : (
-                <a
-                  href={`mailto:partners@remospot.com?subject=Upgrade%20to%20${TIER_LABEL[tier.id]}`}
+                <button
+                  type="button"
+                  onClick={() => handleUpgrade(tier.id)}
+                  disabled={busy !== null}
                   className={cn(
-                    'mt-5 inline-flex h-11 min-h-[44px] items-center justify-center rounded-pill px-5 font-sans text-sm font-semibold transition-opacity duration-fast hover:opacity-90',
+                    'mt-5 inline-flex h-11 min-h-[44px] items-center justify-center rounded-pill px-5 font-sans text-sm font-semibold transition-opacity duration-fast hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60',
                     tier.id === 'featured' ? 'bg-secondary text-dark' : 'bg-primary text-inverse',
                   )}
                 >
-                  Upgrade to {TIER_LABEL[tier.id]} →
-                </a>
+                  {busy === tier.id ? 'Starting…' : `Upgrade to ${TIER_LABEL[tier.id]} →`}
+                </button>
               )}
             </div>
           )

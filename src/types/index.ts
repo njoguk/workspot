@@ -58,11 +58,14 @@ export interface Spot {
 
 export type ProfileRole = 'freelancer' | 'remote_employee' | 'founder' | 'nomad'
 
+export type AccountType = 'member' | 'partner'
+
 export interface Profile {
   id: string
   display_name: string | null
   handle: string | null
   avatar_url: string | null
+  account_type?: AccountType
   role: ProfileRole | null
   interests: string[]
   neighbourhoods: string[]

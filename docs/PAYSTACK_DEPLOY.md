@@ -96,6 +96,24 @@ Events: `charge.success`, `charge.failed`, `transfer.success`.
 - Booking flow: `BookingPage.tsx` creates a `pending` booking → initialise → popup → `/booking/:id/confirm` on success.
 - Subscription flow: `WorkPassPage.tsx` initialise → popup → poll `profiles.is_workpass` (2s × up to 30s) → success screen.
 
+## Partner tier upgrades (feedback round, Phase 4)
+
+The "Upgrade Plan" view now runs through the same Paystack flow as bookings/
+subscriptions instead of a mailto. `src/lib/paystack.ts` gained two payment
+types — `partner_premium` (KES 3,500) and `partner_featured` (KES 8,000) — and an
+optional `spot_id` in the init body. **Two server-side additions are needed for
+this to complete end-to-end (frontend is ready):**
+
+1. `initialize-payment` — accept `spot_id` and the `partner_*` payment types and
+   pass them through to Paystack `metadata`.
+2. `paystack-webhook` — on `charge.success` for a `partner_*` payment, set the
+   spot's tier flags from `metadata.spot_id`:
+   - `partner_premium` → `spots.is_premium_listing = true`
+   - `partner_featured` → `spots.is_featured_listing = true` (and `is_premium_listing = true`)
+
+Until deployed, clicking "Upgrade to …" surfaces a friendly "payment could not be
+started" error (same as booking/subscription today).
+
 ## Partner Portal notes
 
 - The listing editor and payout-number field write **real** owner-scoped rows
